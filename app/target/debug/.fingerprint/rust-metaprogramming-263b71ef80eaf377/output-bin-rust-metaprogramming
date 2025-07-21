@@ -1,0 +1,2 @@
+output let a = 10; let b = 10; let r = a + b; printf("%d", r);
+

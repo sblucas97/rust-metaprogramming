@@ -1,0 +1,1 @@
+/Users/lucas.barbosa/dev/rust-metaprogramming/app/target/debug/rust-metaprogramming: /Users/lucas.barbosa/dev/rust-metaprogramming/app/src/main.rs /Users/lucas.barbosa/dev/rust-metaprogramming/lib/src/helpers.rs /Users/lucas.barbosa/dev/rust-metaprogramming/lib/src/lib.rs
