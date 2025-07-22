@@ -1,12 +1,19 @@
-use std::fs;
+/*use std::fs;
 use std::process::Command;
 use std::path::Path;
-
 use lib::my_macro;
-
+*/
+mod rust_macros;
 
 fn main() {
-    let filename = "runtime_generated.c";
+    custom_for!(
+        let x = 0; x < 10; x += 1 => {
+            println!("from outside")
+        }
+    );
+    custom_for!(let x = 10; x > 0; x -= 1);
+    
+    /*let filename = "runtime_generated.c";
     let binary = "./runtime_generated";
 
     my_macro! {
@@ -44,5 +51,5 @@ fn main() {
     if !run_status.success() {
         panic!("C binary ran with a non-zero exit code");
     }
-
+*/
 }
