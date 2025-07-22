@@ -22,16 +22,20 @@ macro_rules! custom_for {
     }
 }
 
-
-// TODO: implement custom reduce
-/*
+#[macro_export]
 macro_rules! custom_reduce {
-
-    ($acc:ident, $cur:ident => $acc_usage:ident + $cur_usage:ident, $init_val:ident) => {
-        let mut acc = $init_val;
+    // [$($elem:expr), *] means that it expects an array with 1 or more elements
+    // custom_redude([1, 2, 3], item => acc + item, 0)
+    // custom_redude([1, 2, 3], item => acc * item, 0)
+    ([$($elem:expr), *], $item:ident => $acc:ident $operation:tt $item_usage:ident, $init_val:expr) => {{
+        let mut $acc = $init_val;
+        $(
         
-
-    }
+            let $item = $elem;
+            $acc = $acc $operation $elem; 
+        )*
+        $acc
+    }};
 }
-*/
+
 
