@@ -6,6 +6,11 @@ use lib::my_macro;
 mod rust_macros;
 
 fn main() {
+    
+
+    let r = lib_core::custom_add(300, 400);
+
+    println!("result {}", r);
     /*
     custom_for!(
         let x = 0; x < 10; x += 1 => {
@@ -14,10 +19,14 @@ fn main() {
     );
     custom_for!(let x = 10; x > 0; x -= 1);
     */
+
+    /*
     let total_sum = custom_reduce!([1, 2, 3, 10, 20], item => acc + item, 1555);  
     let total_product = custom_reduce!([1, 2, 3], item => acc * item, 1);  
     println!("{}", total_sum);
     println!("{}", total_product);
+    */
+
     /*let filename = "runtime_generated.c";
     let binary = "./runtime_generated";
 

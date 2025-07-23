@@ -30,7 +30,6 @@ macro_rules! custom_reduce {
     ([$($elem:expr), *], $item:ident => $acc:ident $operation:tt $item_usage:ident, $init_val:expr) => {{
         let mut $acc = $init_val;
         $(
-        
             let $item = $elem;
             $acc = $acc $operation $elem; 
         )*
