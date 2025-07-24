@@ -35,6 +35,12 @@ fn main() {
     for x in result_host_data.iter() {
         println!("{}", x);
     }
+
+
+    lib_core::custom_free_gpu_mem(a_device_ptr);
+    lib_core::custom_free_gpu_mem(b_device_ptr);
+    lib_core::custom_free_gpu_mem(result_device_ptr);
+
     /*
     custom_for!(
         let x = 0; x < 10; x += 1 => {
