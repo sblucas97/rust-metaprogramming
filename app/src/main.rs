@@ -1,3 +1,5 @@
+use std::ptr;
+
 /*use std::fs;
 use std::process::Command;
 use std::path::Path;
@@ -9,8 +11,30 @@ fn main() {
     
 
     let r = lib_core::custom_add(300, 400);
+    // device pointer
+    let mut a_device_ptr: *mut f32 = ptr::null_mut();
+    let mut b_device_ptr: *mut f32 = ptr::null_mut();
+    let mut result_device_ptr: *mut f32 = ptr::null_mut();
 
-    println!("result {}", r);
+    lib_core::custom_allocate_gpu_mem(&mut a_device_ptr as *mut *mut f32);
+    lib_core::custom_allocate_gpu_mem(&mut b_device_ptr as *mut *mut f32);
+    lib_core::custom_allocate_gpu_mem(&mut result_device_ptr as *mut *mut f32);
+    
+    // host data
+    let mut a_host_data: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0];
+    let mut b_host_data: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0];
+    let mut result_host_data: Vec<f32> = vec![0.0; 12];
+    lib_core::custom_copy_to_gpu(a_device_ptr, a_host_data.as_ptr());
+    lib_core::custom_copy_to_gpu(b_device_ptr, b_host_data.as_ptr());
+    
+    lib_core::custom_launch_kernel(a_device_ptr, b_device_ptr, result_device_ptr);
+
+    lib_core::custom_copy_from_gpu(result_host_data.as_mut_ptr(), result_device_ptr);
+
+
+    for x in result_host_data.iter() {
+        println!("{}", x);
+    }
     /*
     custom_for!(
         let x = 0; x < 10; x += 1 => {
