@@ -12,59 +12,89 @@ fn main() {
     
 
     let new_c_function = r#"
-        int mult(int a, int b) { return a * b; } 
+    #include<stdio.h>
+    #include<cuda_runtime.h>
+
+    #define ROWS 10
+    #define COLS 10
+
+    __global__ void matrix_add_kernel_2(const float *a, const float *b, float *result) {
+        int idx = blockIdx.x * blockDim.x + threadIdx.x;
+        if (idx < ROWS * COLS) {
+            result[idx] = a[idx] + b[idx];
+        }
+    }
+
+    extern "C" void launch_kernel_2(float *a_d, float *b_d, float *result_d) {
+        int total = ROWS * COLS;
+        int block_size = 256;
+        int grid_size = (total + block_size - 1) / block_size;
+
+        matrix_add_kernel_2<<<grid_size, block_size>>>(a_d, b_d, result_d);
+	    cudaError_t err = cudaGetLastError();	
+        if (err != cudaSuccess) {
+		    fprintf(stderr, "CUDA Error: %s: %s \n", "Failed launching kernel", cudaGetErrorString(err));
+		    exit(EXIT_FAILURE);
+    	}
+
+        cudaDeviceSynchronize(); // Wait for kernel to finish
+    } 
     "#;
 
-    let file_path = "dynamic.c";
+    let file_path = "dynamic.cu";
 
     write(file_path, new_c_function).expect("Failed to create file");
 
     // compile to shared object
-    let so_path = "./libdyn.so";
-    let output = Command::new("gcc")
-        .args(["-shared", "-fPIC", file_path, "-o", so_path])
+    let so_path = "./libdyn_cu.so";
+
+    let output = Command::new("nvcc")
+        .args(["-shared", file_path, "-o", so_path, "-arch=sm_86", "-Xcompiler", "-fPIC"])
         .output()
-        .expect("Failed to compile shared object");
+        .expect("failed to compile cuda.cu");
 
     if !output.status.success() {
         eprintln!("GCC Error: {}", String::from_utf8_lossy(&output.stderr));
         return;
     }
 
+    // device pointer
+    let mut a_device_ptr: *mut f32 = ptr::null_mut();
+    let mut b_device_ptr: *mut f32 = ptr::null_mut();
+    let mut result_device_ptr: *mut f32 = ptr::null_mut();
+
+    lib_core::custom_allocate_gpu_mem(&mut a_device_ptr as *mut *mut f32);
+    lib_core::custom_allocate_gpu_mem(&mut b_device_ptr as *mut *mut f32);
+    lib_core::custom_allocate_gpu_mem(&mut result_device_ptr as *mut *mut f32);
+
+    // host data
+    // let mut a_host_data: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0];
+    let mut a_host_data: Vec<f32> = (1..=10*10).map(|x| x as f32).collect();
+    let mut b_host_data: Vec<f32> = (1..=10*10).map(|x| x as f32).collect();
+    // let mut b_host_data: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0];
+    let mut result_host_data: Vec<f32> = vec![0.0; 10*10];
+    lib_core::custom_copy_to_gpu(a_device_ptr, a_host_data.as_ptr());
+    lib_core::custom_copy_to_gpu(b_device_ptr, b_host_data.as_ptr());
+    
     unsafe {
         let dyn_lib = dynamic_lib::DynamicLib::new(so_path).expect("Failed to load dynamic lib"); 
-        // Library::new(so_path).expect("Failed to load lib");
-        // let mult: Symbol<unsafe extern "C" fn(i32, i32) -> i32> =
-        //     lib.get(b"mult").expect("Failed to find symbol");
-        let result = (dyn_lib.mult)(6, 7);
-        println!("Dynamic multiply: {}", result); 
+    //     // Library::new(so_path).expect("Failed to load lib");
+    //     // let mult: Symbol<unsafe extern "C" fn(i32, i32) -> i32> =
+    //     //     lib.get(b"mult").expect("Failed to find symbol");
+        (dyn_lib.launch_kernel_2)(a_device_ptr, b_device_ptr, result_device_ptr);
     }
+    lib_core::custom_copy_from_gpu(result_host_data.as_mut_ptr(), result_device_ptr);
+
+    lib_core::custom_free_gpu_mem(a_device_ptr);
+    lib_core::custom_free_gpu_mem(b_device_ptr);
+    lib_core::custom_free_gpu_mem(result_device_ptr);
+
     // let r = lib_core::custom_add(300, 400);
-    // // device pointer
-    // let mut a_device_ptr: *mut f32 = ptr::null_mut();
-    // let mut b_device_ptr: *mut f32 = ptr::null_mut();
-    // let mut result_device_ptr: *mut f32 = ptr::null_mut();
-
-    // lib_core::custom_allocate_gpu_mem(&mut a_device_ptr as *mut *mut f32);
-    // lib_core::custom_allocate_gpu_mem(&mut b_device_ptr as *mut *mut f32);
-    // lib_core::custom_allocate_gpu_mem(&mut result_device_ptr as *mut *mut f32);
-
-    // // host data
-    // // let mut a_host_data: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0];
-    // let mut a_host_data: Vec<f32> = (1..=5000*5000).map(|x| x as f32).collect();
-    // let mut b_host_data: Vec<f32> = (1..=5000*5000).map(|x| x as f32).collect();
-    // // let mut b_host_data: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0];
-    // let mut result_host_data: Vec<f32> = vec![0.0; 5000*5000];
-    // lib_core::custom_copy_to_gpu(a_device_ptr, a_host_data.as_ptr());
-    // lib_core::custom_copy_to_gpu(b_device_ptr, b_host_data.as_ptr());
-    
     // lib_core::custom_launch_kernel(a_device_ptr, b_device_ptr, result_device_ptr);
 
-    // lib_core::custom_copy_from_gpu(result_host_data.as_mut_ptr(), result_device_ptr);
-
-    // lib_core::custom_free_gpu_mem(a_device_ptr);
-    // lib_core::custom_free_gpu_mem(b_device_ptr);
-    // lib_core::custom_free_gpu_mem(result_device_ptr);
+    for n in result_host_data.iter() {
+        println!("{}", n);
+    }
 
     /*
     custom_for!(

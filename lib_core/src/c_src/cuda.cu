@@ -1,8 +1,8 @@
 #include<stdio.h>
 #include<cuda_runtime.h>
 
-#define ROWS 5000
-#define COLS 5000
+#define ROWS 10
+#define COLS 10
 
 void checkCudaError(cudaError_t err, const char *msg) {
 	if (err != cudaSuccess) {
