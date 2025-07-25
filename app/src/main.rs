@@ -1,41 +1,70 @@
 use std::ptr;
-
-/*use std::fs;
+use std::fs::write;
 use std::process::Command;
+/*
 use std::path::Path;
 use lib::my_macro;
 */
 mod rust_macros;
+mod dynamic_lib;
 
 fn main() {
     
 
-    let r = lib_core::custom_add(300, 400);
-    // device pointer
-    let mut a_device_ptr: *mut f32 = ptr::null_mut();
-    let mut b_device_ptr: *mut f32 = ptr::null_mut();
-    let mut result_device_ptr: *mut f32 = ptr::null_mut();
+    let new_c_function = r#"
+        int mult(int a, int b) { return a * b; } 
+    "#;
 
-    lib_core::custom_allocate_gpu_mem(&mut a_device_ptr as *mut *mut f32);
-    lib_core::custom_allocate_gpu_mem(&mut b_device_ptr as *mut *mut f32);
-    lib_core::custom_allocate_gpu_mem(&mut result_device_ptr as *mut *mut f32);
+    let file_path = "dynamic.c";
 
-    // host data
-    // let mut a_host_data: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0];
-    let mut a_host_data: Vec<f32> = (1..=5000*5000).map(|x| x as f32).collect();
-    let mut b_host_data: Vec<f32> = (1..=5000*5000).map(|x| x as f32).collect();
-    // let mut b_host_data: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0];
-    let mut result_host_data: Vec<f32> = vec![0.0; 5000*5000];
-    lib_core::custom_copy_to_gpu(a_device_ptr, a_host_data.as_ptr());
-    lib_core::custom_copy_to_gpu(b_device_ptr, b_host_data.as_ptr());
+    write(file_path, new_c_function).expect("Failed to create file");
+
+    // compile to shared object
+    let so_path = "./libdyn.so";
+    let output = Command::new("gcc")
+        .args(["-shared", "-fPIC", file_path, "-o", so_path])
+        .output()
+        .expect("Failed to compile shared object");
+
+    if !output.status.success() {
+        eprintln!("GCC Error: {}", String::from_utf8_lossy(&output.stderr));
+        return;
+    }
+
+    unsafe {
+        let dyn_lib = dynamic_lib::DynamicLib::new(so_path).expect("Failed to load dynamic lib"); 
+        // Library::new(so_path).expect("Failed to load lib");
+        // let mult: Symbol<unsafe extern "C" fn(i32, i32) -> i32> =
+        //     lib.get(b"mult").expect("Failed to find symbol");
+        let result = (dyn_lib.mult)(6, 7);
+        println!("Dynamic multiply: {}", result); 
+    }
+    // let r = lib_core::custom_add(300, 400);
+    // // device pointer
+    // let mut a_device_ptr: *mut f32 = ptr::null_mut();
+    // let mut b_device_ptr: *mut f32 = ptr::null_mut();
+    // let mut result_device_ptr: *mut f32 = ptr::null_mut();
+
+    // lib_core::custom_allocate_gpu_mem(&mut a_device_ptr as *mut *mut f32);
+    // lib_core::custom_allocate_gpu_mem(&mut b_device_ptr as *mut *mut f32);
+    // lib_core::custom_allocate_gpu_mem(&mut result_device_ptr as *mut *mut f32);
+
+    // // host data
+    // // let mut a_host_data: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0];
+    // let mut a_host_data: Vec<f32> = (1..=5000*5000).map(|x| x as f32).collect();
+    // let mut b_host_data: Vec<f32> = (1..=5000*5000).map(|x| x as f32).collect();
+    // // let mut b_host_data: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0];
+    // let mut result_host_data: Vec<f32> = vec![0.0; 5000*5000];
+    // lib_core::custom_copy_to_gpu(a_device_ptr, a_host_data.as_ptr());
+    // lib_core::custom_copy_to_gpu(b_device_ptr, b_host_data.as_ptr());
     
-    lib_core::custom_launch_kernel(a_device_ptr, b_device_ptr, result_device_ptr);
+    // lib_core::custom_launch_kernel(a_device_ptr, b_device_ptr, result_device_ptr);
 
-    lib_core::custom_copy_from_gpu(result_host_data.as_mut_ptr(), result_device_ptr);
+    // lib_core::custom_copy_from_gpu(result_host_data.as_mut_ptr(), result_device_ptr);
 
-    lib_core::custom_free_gpu_mem(a_device_ptr);
-    lib_core::custom_free_gpu_mem(b_device_ptr);
-    lib_core::custom_free_gpu_mem(result_device_ptr);
+    // lib_core::custom_free_gpu_mem(a_device_ptr);
+    // lib_core::custom_free_gpu_mem(b_device_ptr);
+    // lib_core::custom_free_gpu_mem(result_device_ptr);
 
     /*
     custom_for!(
