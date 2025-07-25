@@ -19,23 +19,19 @@ fn main() {
     lib_core::custom_allocate_gpu_mem(&mut a_device_ptr as *mut *mut f32);
     lib_core::custom_allocate_gpu_mem(&mut b_device_ptr as *mut *mut f32);
     lib_core::custom_allocate_gpu_mem(&mut result_device_ptr as *mut *mut f32);
-    
+
     // host data
-    let mut a_host_data: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0];
-    let mut b_host_data: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0];
-    let mut result_host_data: Vec<f32> = vec![0.0; 12];
+    // let mut a_host_data: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0];
+    let mut a_host_data: Vec<f32> = (1..=5000*5000).map(|x| x as f32).collect();
+    let mut b_host_data: Vec<f32> = (1..=5000*5000).map(|x| x as f32).collect();
+    // let mut b_host_data: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0];
+    let mut result_host_data: Vec<f32> = vec![0.0; 5000*5000];
     lib_core::custom_copy_to_gpu(a_device_ptr, a_host_data.as_ptr());
     lib_core::custom_copy_to_gpu(b_device_ptr, b_host_data.as_ptr());
     
     lib_core::custom_launch_kernel(a_device_ptr, b_device_ptr, result_device_ptr);
 
     lib_core::custom_copy_from_gpu(result_host_data.as_mut_ptr(), result_device_ptr);
-
-
-    for x in result_host_data.iter() {
-        println!("{}", x);
-    }
-
 
     lib_core::custom_free_gpu_mem(a_device_ptr);
     lib_core::custom_free_gpu_mem(b_device_ptr);

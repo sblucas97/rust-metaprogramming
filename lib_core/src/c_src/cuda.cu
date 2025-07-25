@@ -1,8 +1,8 @@
 #include<stdio.h>
 #include<cuda_runtime.h>
 
-#define ROWS 3
-#define COLS 4
+#define ROWS 5000
+#define COLS 5000
 
 void checkCudaError(cudaError_t err, const char *msg) {
 	if (err != cudaSuccess) {
@@ -49,4 +49,8 @@ extern "C" void launch_kernel(float *a_d, float *b_d, float *result_d) {
 	cudaError_t err = cudaGetLastError();
     checkCudaError(err, "Kernel launch failed");
     cudaDeviceSynchronize(); // Wait for kernel to finish
+}
+
+extern "C" void free_gpu_mem(float *data_device) {
+	cudaFree(data_device);
 }
