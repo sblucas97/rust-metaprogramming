@@ -7,3 +7,4 @@ edition = "2024"
 [dependencies]
 lib  = { path = "../lib" }
 lib_core = { path = "../lib_core" }
+libloading = "0.8.8"
