@@ -5,6 +5,41 @@ use quote::quote;
 
 mod helpers;
 
+
+#[proc_macro]
+pub fn define_gpu_kernel(input: TokenStream) -> TokenStream {
+
+    let mut output = TokenStream::new();
+    let mut tokens = input.into_iter().peekable();
+
+    while let Some(token) = tokens.next() {
+        match token {
+            _ => {
+                output.extend([token]);
+            }
+        }
+    }
+    
+
+    let mut code_str = helpers::get_cuda_headers();
+    code_str.push_str(&helpers::init_main_function());
+    code_str.push_str(&output.to_string());
+    code_str.push_str(&helpers::close_main_function());
+    code_str = code_str.replace(";", ";\n");
+
+    let quote = quote! {
+        use std::fs;
+        use std::path::PathBuf;
+
+        let mut output_path = PathBuf::from("dynamic_from_proc_macro.cu");
+        let code = #code_str;
+        fs::write(&output_path, code).expect("Failed to write to output_path from macro");
+    };
+    
+
+    return quote.into();
+}
+
 #[proc_macro]
 pub fn my_macro(input: TokenStream) -> TokenStream {
     let mut output = TokenStream::new();
