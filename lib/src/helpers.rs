@@ -1,6 +1,9 @@
 pub fn get_headers() -> String {
     let stdio_header = r#"
-    #include <stdio.h>
+    #include <cuda_runtime.h>
+    #include <iostream>
+
+    #define N 10 
     "#;
     
     return stdio_header.to_string();

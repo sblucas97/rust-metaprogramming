@@ -1,63 +1,129 @@
 extern crate proc_macro;
 
-use proc_macro::{TokenStream, TokenTree, Literal, Group, Ident, Punct, Spacing, Span, Delimiter};
+use proc_macro::TokenStream;
+use proc_macro2::Ident;
 use quote::quote;
+use syn::{parse::Parse, parse_macro_input, Token};
 
 mod helpers;
 
+struct SpawnArgs {
+    a_host: Ident,
+    _comma1: Token![,],
+    b_host: Ident,
+    _comma2: Token![,],
+    result_host: Ident,
+}
+
+impl Parse for SpawnArgs {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        Ok(SpawnArgs {
+            a_host: input.parse()?,
+            _comma1: input.parse()?,
+            b_host: input.parse()?,
+            _comma2: input.parse()?,
+            result_host: input.parse()?,
+        })
+    }
+}
+
 #[proc_macro]
-pub fn my_macro(input: TokenStream) -> TokenStream {
-    let mut output = TokenStream::new();
-    let mut tokens = input.into_iter().peekable();
+pub fn spawn(input: TokenStream) -> TokenStream {
+    let SpawnArgs {
+        a_host,
+        b_host,
+        result_host,
+        ..
+    } = parse_macro_input!(input as SpawnArgs);
+    
+    let expanded = quote! {
+        {
+            use std::ptr;
+            use std::process::Command;
 
-    while let Some(token) = tokens.next() {
-        match token {
-            TokenTree::Ident(ident) if ident.to_string() == "xx" => {
-                let new_ident = Ident::new("int", ident.span());
-                output.extend([TokenTree::Ident(new_ident)]);
-            }
+            let kernel = r#"
+#include<stdio.h>
+#include<cuda_runtime.h>
 
-            TokenTree::Punct(punct) if punct.as_char() == ':' => {
-                let new_punct = Punct::new('=', Spacing::Alone);
-                output.extend([TokenTree::Punct(new_punct)]);
-            }
+#define ROWS 100
+#define COLS 100
 
-            
-            TokenTree::Ident(ident) if ident.to_string() == "print" => {
-                output.extend([TokenTree::Ident(Ident::new("printf", ident.span()))]);
-
-                if let Some(TokenTree::Group(group)) = tokens.next() {
-                    // Just forward the parentheses and their contents
-                    let new_group = Group::new(Delimiter::Parenthesis, group.stream());
-                    output.extend([TokenTree::Group(new_group)]);
-                } else {
-                    panic!("Expected group after print");
-                }
-            }
-
-            _ => {
-                output.extend([token]);
-            }
-        }
+void checkCudaError(cudaError_t err, const char *msg) {
+    if (err != cudaSuccess) {
+        fprintf(stderr, "CUDA Error: %s: %s \n", msg, cudaGetErrorString(err));
+        exit(EXIT_FAILURE);
     }
 
-    let mut code_str = helpers::get_headers();
-    code_str.push_str(&helpers::init_main_function());
-    code_str.push_str(&output.to_string());
-    code_str.push_str(&helpers::close_main_function());
-    code_str = code_str.replace(";", ";\n");
 
-    
-    // write dsl to c file
-    let quote = quote! {
-        use std::fs;
-        use std::path::PathBuf;
+    fprintf(stderr, "EVERYTHING OK\n");
+}
 
-        let mut output_path = PathBuf::from("runtime_generated.c");
-        let code = #code_str;
-        fs::write(&output_path, code).expect("Failed to write to output_path from macro");
+
+__global__ void matrix_add_kernel(const float *a, const float *b, float *result) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < ROWS * COLS) {
+        result[idx] = a[idx] + b[idx];
+    }
+}
+
+extern "C" void launch_kernel(float *a_d, float *b_d, float *result_d) {
+    int total = ROWS * COLS;
+    int block_size = 256;
+    int grid_size = (total + block_size - 1) / block_size;
+
+    matrix_add_kernel<<<grid_size, block_size>>>(a_d, b_d, result_d);
+    cudaError_t err = cudaGetLastError();
+    checkCudaError(err, "Kernel launch failed");
+    cudaDeviceSynchronize();
+}
+"#;
+            
+            let output_lib_path = "./matrix_add_kernel.so";
+            std::fs::write("matrix_add_kernel.cu", kernel).expect("Failed to write kernel file");
+
+            let compile_status = Command::new("nvcc")
+                .arg("matrix_add_kernel.cu")
+                .arg("-o")
+                .arg(output_lib_path)
+                .arg("--shared")
+                .arg("-Xcompiler")
+                .arg("-fPIC")
+                .arg("-x")
+                .arg("cu") 
+                .status()
+                .expect("Failed to execute nvcc");
+
+            if !compile_status.success() {
+                panic!("nvcc compilation failed");
+            }
+            
+            let mut result_device_ptr: *mut f32 = ptr::null_mut();
+            lib_core::custom_allocate_gpu_mem(&mut result_device_ptr as *mut *mut f32);
+
+            unsafe {
+                type LaunchKernelFuncFloat = unsafe extern "C" fn(*mut std::os::raw::c_float, *mut std::os::raw::c_float, *mut std::os::raw::c_float);
+
+                let lib = libloading::Library::new(output_lib_path).expect("Failed to load library");
+
+                let launch_kernel_symbol: libloading::Symbol<LaunchKernelFuncFloat> = 
+                    lib.get(b"launch_kernel\0").expect("Failed to get symbol");
+                    
+                launch_kernel_symbol(
+                    #a_host.get_device_ptr() as *mut std::os::raw::c_float,
+                    #b_host.get_device_ptr() as *mut std::os::raw::c_float,
+                    result_device_ptr as *mut std::os::raw::c_float,
+                );
+            }
+            
+            // or rows * cols
+            let result_size = #a_host.len(); 
+            #result_host.resize(result_size, 0.0);
+            lib_core::custom_copy_from_gpu(#result_host.as_mut_ptr(), result_device_ptr);
+            lib_core::custom_free_gpu_mem(result_device_ptr);
+
+            ()
+        }
     };
-    
 
-    return quote.into();
+    expanded.into()
 }
