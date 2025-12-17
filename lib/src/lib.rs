@@ -1,11 +1,11 @@
 extern crate proc_macro;
 
-use std::fmt::format;
+// use std::fmt::forma;
 use std::process::Command;
 
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
-use quote::quote;
+use quote::{quote, format_ident};
 use syn::{parse::Parse, parse_macro_input, Token, ItemFn};
 
 mod helpers_1;
@@ -35,7 +35,7 @@ impl Parse for SpawnArgs {
 }
 
 #[proc_macro]
-pub fn spawn(input: TokenStream) -> TokenStream {
+pub fn spawn_old(input: TokenStream) -> TokenStream {
     let SpawnArgs {
         a_host,
         b_host,
@@ -145,67 +145,15 @@ pub fn kernel(args: TokenStream, input: TokenStream) -> TokenStream {
     // --- Identification/Extraction ---
 
     // 2. Identify the function name (and convert it into a string)
-    let function_name = input_fn.sig.ident.to_string();
+    // let function_name = input_fn.sig.ident.to_string();
+    let function_name_ident = &input_fn.sig.ident;
+    let function_name = function_name_ident.to_string();
     println!("Kernel Name: {}", function_name); // Prints at macro compilation time
 
     gen_kernel::gen_kernel(&function_name);
     gen_kernel_header::gen_kernel_header(&function_name);
     gen_launcher::gen_launcher(&function_name);
 
-    let output_lib_path_generated = format!("kernel_and_launcher_generated_for_{function_name}.so");
-    let output = Command::new("nvcc")
-        .arg("-arch=sm_86")  // Adjust for your GPU
-        .arg(format!("generated_{function_name}.cu"))
-        .arg(format!("generated_{function_name}_launcher.cu"))
-        .arg("-o")
-        .arg(&output_lib_path_generated)
-        .arg("--shared")
-        .arg("-Xcompiler")
-        .arg("-fPIC")
-        .arg("-x")
-        .arg("cu")
-        .output()
-        .expect("Failed to execute nvcc");
-
-    // Print stdout
-    if !output.stdout.is_empty() {
-        eprintln!("NVCC stdout:\n{}", String::from_utf8_lossy(&output.stdout));
-    }
-    
-    // Print stderr (this is where most compiler messages go)
-    if !output.stderr.is_empty() {
-        eprintln!("NVCC stderr:\n{}", String::from_utf8_lossy(&output.stderr));
-    }
-    
-    // Check if compilation succeeded
-    if !output.status.success() {
-        panic!("nvcc compilation failed with exit code: {:?}", output.status.code());
-    }
-    
-    
-        let absolute_path = std::env::current_dir()
-            .unwrap()
-            .join(&output_lib_path_generated);
-
-        eprintln!("Loading library from: {}", absolute_path.display());
-    unsafe {
-        type LaunchKernelFuncHelloVoid = unsafe extern "C" fn();
-        
-        let lib = libloading::Library::new(&absolute_path)
-        .expect("Failed to load library");
-
-        let launch_hello_fun_name = format!("launch_generated_{function_name}");
-        
-        // Fix: Convert the String to a null-terminated CString
-        let symbol_name = std::ffi::CString::new(launch_hello_fun_name)
-            .expect("Failed to create CString");
-        
-        let launch_kernel_symbol: libloading::Symbol<LaunchKernelFuncHelloVoid> =
-            lib.get(symbol_name.as_bytes_with_nul())
-                .expect("Failed to get symbol");
-
-        launch_kernel_symbol();
-    }
     // 3. Access function arguments
     // input_fn.sig.inputs is a Punctuated<FnArg, Comma>
     // println!("Arguments:");
@@ -218,7 +166,7 @@ pub fn kernel(args: TokenStream, input: TokenStream) -> TokenStream {
     // 4. Access the function body (Block)
     // input_fn.block is a Box<Block>
     // You can iterate over the statements in the body:
-    let body_statements = &input_fn.block.stmts;
+    // let body_statements = &input_fn.block.stmts;
     // println!("Function Body Statements Count: {}", body_statements.len());
 
     // NOTE: To parse the *contents* of these statements dynamically (like finding
@@ -227,10 +175,34 @@ pub fn kernel(args: TokenStream, input: TokenStream) -> TokenStream {
     // part and usually requires a custom visitor pattern (syn::visit::Visit).
 
     // Example of just printing the raw body tokens:
-    for (index, item) in body_statements.iter().enumerate() {
+    // for (index, item) in body_statements.iter().enumerate() {
 
-        println!("i {} Token {:?}", index, item);
-    }
+        // println!("i {} Token {:?}", index, item);
+    // }
     // let body_tokens = quote! { #(#body_statements)* };
-    TokenStream::new()
+    let sig = &input_fn.sig;
+ 
+    let expanded = quote! {
+        pub mod #function_name_ident {
+            use super::*;
+            
+            // The kernel function (not meant to be called on CPU)
+            #sig {
+                panic!("Kernel function '{}' cannot be called directly on CPU. Use spawn::<{}::Marker>() instead.", 
+                       stringify!(#function_name_ident), 
+                       stringify!(#function_name_ident));
+            }
+
+            // Public marker struct
+            pub struct Marker;
+
+            impl KernelName for Marker {
+                fn kernel_name() -> &'static str {
+                    stringify!(#function_name_ident)
+                }
+            }
+        }
+    };
+
+    expanded.into() 
 }
