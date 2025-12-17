@@ -3,8 +3,12 @@ extern crate proc_macro;
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
 use quote::quote;
-use syn::{parse::Parse, parse_macro_input, Token};
+use syn::{parse::Parse, parse_macro_input, Token, ItemFn};
 
+mod helpers_1;
+mod gen_kernel;
+mod gen_kernel_header;
+mod gen_launcher;
 mod helpers;
 
 struct SpawnArgs {
@@ -35,7 +39,7 @@ pub fn spawn(input: TokenStream) -> TokenStream {
         result_host,
         ..
     } = parse_macro_input!(input as SpawnArgs);
-    
+
     let expanded = quote! {
         {
             use std::ptr;
@@ -77,7 +81,7 @@ extern "C" void launch_kernel(float *a_d, float *b_d, float *result_d) {
     cudaDeviceSynchronize();
 }
 "#;
-            
+
             let output_lib_path = "./matrix_add_kernel.so";
             std::fs::write("matrix_add_kernel.cu", kernel).expect("Failed to write kernel file");
 
@@ -89,14 +93,14 @@ extern "C" void launch_kernel(float *a_d, float *b_d, float *result_d) {
                 .arg("-Xcompiler")
                 .arg("-fPIC")
                 .arg("-x")
-                .arg("cu") 
+                .arg("cu")
                 .status()
                 .expect("Failed to execute nvcc");
 
             if !compile_status.success() {
                 panic!("nvcc compilation failed");
             }
-            
+
             let mut result_device_ptr: *mut f32 = ptr::null_mut();
             lib_core::custom_allocate_gpu_mem(&mut result_device_ptr as *mut *mut f32);
 
@@ -105,18 +109,18 @@ extern "C" void launch_kernel(float *a_d, float *b_d, float *result_d) {
 
                 let lib = libloading::Library::new(output_lib_path).expect("Failed to load library");
 
-                let launch_kernel_symbol: libloading::Symbol<LaunchKernelFuncFloat> = 
+                let launch_kernel_symbol: libloading::Symbol<LaunchKernelFuncFloat> =
                     lib.get(b"launch_kernel\0").expect("Failed to get symbol");
-                    
+
                 launch_kernel_symbol(
                     #a_host.get_device_ptr() as *mut std::os::raw::c_float,
                     #b_host.get_device_ptr() as *mut std::os::raw::c_float,
                     result_device_ptr as *mut std::os::raw::c_float,
                 );
             }
-            
+
             // or rows * cols
-            let result_size = #a_host.len(); 
+            let result_size = #a_host.len();
             #result_host.resize(result_size, 0.0);
             lib_core::custom_copy_from_gpu(#result_host.as_mut_ptr(), result_device_ptr);
             lib_core::custom_free_gpu_mem(result_device_ptr);
@@ -126,4 +130,50 @@ extern "C" void launch_kernel(float *a_d, float *b_d, float *result_d) {
     };
 
     expanded.into()
+}
+
+#[proc_macro_attribute]
+pub fn kernel(args: TokenStream, input: TokenStream) -> TokenStream {
+
+    // 1. Parse the input TokenStream into a structured ItemFn AST node.
+    // If the input is not a function, this will panic and generate a helpful error.
+    let input_fn = parse_macro_input!(input as ItemFn);
+
+    // --- Identification/Extraction ---
+
+    // 2. Identify the function name (and convert it into a string)
+    let function_name = input_fn.sig.ident.to_string();
+    println!("Kernel Name: {}", function_name); // Prints at macro compilation time
+
+    gen_kernel::gen_kernel(&function_name);
+    gen_kernel_header::gen_kernel_header(&function_name);
+    gen_launcher::gen_launcher(&function_name);
+
+    // 3. Access function arguments
+    // input_fn.sig.inputs is a Punctuated<FnArg, Comma>
+    // println!("Arguments:");
+    // for arg in &input_fn.sig.inputs {
+    //     // You would typically use pattern matching here to destructure the argument
+    //     // into its identifier, type, etc.
+    //     println!("  - {:?}", arg);
+    // }
+
+    // 4. Access the function body (Block)
+    // input_fn.block is a Box<Block>
+    // You can iterate over the statements in the body:
+    let body_statements = &input_fn.block.stmts;
+    // println!("Function Body Statements Count: {}", body_statements.len());
+
+    // NOTE: To parse the *contents* of these statements dynamically (like finding
+    // `any_custom_variable_here` or `any_custom_function`), you would have to
+    // traverse the tokens within each statement's AST, which is the most complex
+    // part and usually requires a custom visitor pattern (syn::visit::Visit).
+
+    // Example of just printing the raw body tokens:
+    for (index, item) in body_statements.iter().enumerate() {
+
+        println!("i {} Token {:?}", index, item);
+    }
+    // let body_tokens = quote! { #(#body_statements)* };
+    TokenStream::new()
 }

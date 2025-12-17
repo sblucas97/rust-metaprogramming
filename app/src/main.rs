@@ -2,7 +2,7 @@ use std::ptr;
 use std::fs::write;
 use std::process::Command;
 
-use lib::{spawn};
+use lib::{spawn, kernel};
 use lib_core::CudaVec;
 /*
 use std::path::Path;
@@ -12,6 +12,12 @@ mod rust_macros;
 mod dynamic_lib;
 
 
+#[kernel]
+pub fn hello_world_custom_2(a: &str) {
+    any_custom_variable_here + 1;
+    any_custom_function(a);
+}
+
 fn main() {
 
     let mut a_host_data: CudaVec<f32> = CudaVec::new((1..=100*100).map(|x| x as f32).collect());
@@ -19,7 +25,7 @@ fn main() {
     let mut result_host_data: Vec<f32> = Vec::new();
 
     spawn!(a_host_data, b_host_data, result_host_data);
-    
+
     for n in result_host_data.iter() {
         println!("{}", n);
     }
