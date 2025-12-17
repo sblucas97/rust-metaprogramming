@@ -19,14 +19,14 @@ pub fn gen_launcher(name: &String) {
      writeln!(file, "{}", helpers::gen_contants()).unwrap();
 
     let launcher = format!(r#"
-extern "C" void launch_{name}() {{
+extern "C" void launch_generated_{name}() {{
     int total = ROWS * COLS;
     int block_size = 256;
     int grid_size = (total + block_size - 1) / block_size;
 
     {name}<<<grid_size, block_size>>>();
-    cudaError_t err = cudaGetLastError();
-    checkCudaError(err, "Kernel launch failed");
+    // cudaError_t err = cudaGetLastError();
+    // checkCudaError(err, "Kernel launch failed");
     cudaDeviceSynchronize();
 }}
     "#);

@@ -4,6 +4,6 @@
     
 
         __global__ void hello_world_custom_2() {
-            fprintf("hello world");
+            printf("Hello World from GPU!\n");
         }
     

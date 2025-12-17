@@ -1,5 +1,8 @@
 extern crate proc_macro;
 
+use std::fmt::format;
+use std::process::Command;
+
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
 use quote::quote;
@@ -149,6 +152,60 @@ pub fn kernel(args: TokenStream, input: TokenStream) -> TokenStream {
     gen_kernel_header::gen_kernel_header(&function_name);
     gen_launcher::gen_launcher(&function_name);
 
+    let output_lib_path_generated = format!("kernel_and_launcher_generated_for_{function_name}.so");
+    let output = Command::new("nvcc")
+        .arg("-arch=sm_86")  // Adjust for your GPU
+        .arg(format!("generated_{function_name}.cu"))
+        .arg(format!("generated_{function_name}_launcher.cu"))
+        .arg("-o")
+        .arg(&output_lib_path_generated)
+        .arg("--shared")
+        .arg("-Xcompiler")
+        .arg("-fPIC")
+        .arg("-x")
+        .arg("cu")
+        .output()
+        .expect("Failed to execute nvcc");
+
+    // Print stdout
+    if !output.stdout.is_empty() {
+        eprintln!("NVCC stdout:\n{}", String::from_utf8_lossy(&output.stdout));
+    }
+    
+    // Print stderr (this is where most compiler messages go)
+    if !output.stderr.is_empty() {
+        eprintln!("NVCC stderr:\n{}", String::from_utf8_lossy(&output.stderr));
+    }
+    
+    // Check if compilation succeeded
+    if !output.status.success() {
+        panic!("nvcc compilation failed with exit code: {:?}", output.status.code());
+    }
+    
+    
+        let absolute_path = std::env::current_dir()
+            .unwrap()
+            .join(&output_lib_path_generated);
+
+        eprintln!("Loading library from: {}", absolute_path.display());
+    unsafe {
+        type LaunchKernelFuncHelloVoid = unsafe extern "C" fn();
+        
+        let lib = libloading::Library::new(&absolute_path)
+        .expect("Failed to load library");
+
+        let launch_hello_fun_name = format!("launch_generated_{function_name}");
+        
+        // Fix: Convert the String to a null-terminated CString
+        let symbol_name = std::ffi::CString::new(launch_hello_fun_name)
+            .expect("Failed to create CString");
+        
+        let launch_kernel_symbol: libloading::Symbol<LaunchKernelFuncHelloVoid> =
+            lib.get(symbol_name.as_bytes_with_nul())
+                .expect("Failed to get symbol");
+
+        launch_kernel_symbol();
+    }
     // 3. Access function arguments
     // input_fn.sig.inputs is a Punctuated<FnArg, Comma>
     // println!("Arguments:");

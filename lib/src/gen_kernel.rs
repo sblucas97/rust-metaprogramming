@@ -8,7 +8,7 @@ pub fn gen_kernel(name: &String) {
 
     let kernel = format!(r#"
         __global__ void {name}() {{
-            fprintf("hello world");
+            printf("Hello World from GPU!\n");
         }}
     "#);
 
