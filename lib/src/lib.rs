@@ -34,6 +34,7 @@ impl Parse for SpawnArgs {
     }
 }
 
+
 #[proc_macro]
 pub fn spawn_old(input: TokenStream) -> TokenStream {
     let SpawnArgs {
@@ -136,7 +137,7 @@ extern "C" void launch_kernel(float *a_d, float *b_d, float *result_d) {
 }
 
 #[proc_macro_attribute]
-pub fn kernel(args: TokenStream, input: TokenStream) -> TokenStream {
+pub fn kernel2(args: TokenStream, input: TokenStream) -> TokenStream {
 
     // 1. Parse the input TokenStream into a structured ItemFn AST node.
     // If the input is not a function, this will panic and generate a helpful error.
@@ -183,17 +184,16 @@ pub fn kernel(args: TokenStream, input: TokenStream) -> TokenStream {
     let sig = &input_fn.sig;
  
     let expanded = quote! {
+
         pub mod #function_name_ident {
             use super::*;
             
-            // The kernel function (not meant to be called on CPU)
             #sig {
                 panic!("Kernel function '{}' cannot be called directly on CPU. Use spawn::<{}::Marker>() instead.", 
                        stringify!(#function_name_ident), 
                        stringify!(#function_name_ident));
             }
 
-            // Public marker struct
             pub struct Marker;
 
             impl KernelName for Marker {
@@ -205,4 +205,39 @@ pub fn kernel(args: TokenStream, input: TokenStream) -> TokenStream {
     };
 
     expanded.into() 
+}
+
+
+
+#[proc_macro_attribute]
+pub fn kernel(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let input_fn = parse_macro_input!(item as syn::ItemFn);
+    helpers::gen_kernel(&attr, input_fn.clone());
+    helpers::gen_launcher(&attr, input_fn.clone());
+
+    let sig = &input_fn.sig;
+    let function_name_ident = &input_fn.sig.ident;
+
+    let expanded = quote! {
+
+        pub mod #function_name_ident {
+            use super::*;
+            
+            #sig {
+                panic!("Kernel function '{}' cannot be called directly on CPU. Use spawn::<{}::Marker>() instead.", 
+                       stringify!(#function_name_ident), 
+                       stringify!(#function_name_ident));
+            }
+
+            pub struct Marker;
+
+            impl KernelName for Marker {
+                fn kernel_name() -> &'static str {
+                    stringify!(#function_name_ident)
+                }
+            }
+        }
+    };
+
+    expanded.into()
 }
