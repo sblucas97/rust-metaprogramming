@@ -15,10 +15,16 @@ pub trait KernelName {
     fn kernel_name() -> &'static str;
 }
 
+// #[device_function]
+// fn device_function() {
+
+// }
 
 #[kernel]
 fn mm(cc: &CudaVec<f32>, dd: &CudaVec<f32>, ee: &mut CudaVec<f32>) {
     let idx: u64 = blockIdx.x * blockDim.x + threadIdx.x;
+
+    // device_function();
 
     if (idx < ROWS * COLS) {
         ee[idx] = cc[idx] * dd[idx];
@@ -31,6 +37,8 @@ fn main() {
     let mut b_host_data: CudaVec<f32> = CudaVec::new((1..=100*100).map(|x| x as f32).collect());
     let mut result_host_data: Vec<f32> = Vec::new();
     
+    // device_function();
+
     spawn::<mm::Marker>(a_host_data, b_host_data, &mut result_host_data);
 
     for n in result_host_data.iter() {
