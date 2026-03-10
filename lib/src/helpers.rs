@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
-use std::{collections::HashMap, fmt::format};
-use syn::{parse::Parse, parse_macro_input, Token, ItemFn};
+use std::{collections::HashMap};
+use syn::{ItemFn};
 
 struct Generator {
     file_content: String,
