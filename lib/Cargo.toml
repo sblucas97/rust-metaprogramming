@@ -4,12 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+guard-rt = { path = "../guard-rt" }
+lib_core = { path = "../lib_core" }
 proc-macro2 = "1.0.95"
 quote = "1.0"
 syn = { version = "2.0", features = ["full"] }
-lib_core = { path = "../lib_core" }
 libloading = "0.7"
 darling = "0.23.0"
+once_cell = "1.18"
 
 [lib]
 proc-macro = true

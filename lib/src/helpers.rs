@@ -330,6 +330,7 @@ impl Generator {
             syn::Expr::Field(expr_field) => self.gen_expr_field(expr_field),
             syn::Expr::Assign(expr_assing) => self.gen_expr_assing(expr_assing),
             syn::Expr::Index(expr_index) => self.gen_expr_index(expr_index),
+            syn::Expr::Call(expr_call) => self.gen_expr_call(expr_call),
             _ => {
                 println!("{:#?}", expr);
                 String::new()
@@ -337,12 +338,18 @@ impl Generator {
         }
     }
 
+    fn gen_expr_call(&mut self, expr_call: &syn::ExprCall) -> String {
+        println!("######################################################");
+        println!("######################################################");
+        println!("{:#?}", expr_call);
+        println!("######################################################");
+        println!("######################################################");
+        let func = self.gen_expr(&expr_call.func);
+        format!("{}", func)
+    }
+
     fn gen_expr_index(&mut self, expr_index: &syn::ExprIndex) -> String {
-        println!("######################################################");
-        println!("######################################################");
-        println!("{:?}", expr_index);
-        println!("######################################################");
-        println!("######################################################");
+        
         let expr = self.gen_expr(&expr_index.expr);
         let idx = self.gen_expr(&expr_index.index);
         format!("{}[{}]", expr, idx)
@@ -380,7 +387,7 @@ impl Generator {
     }
 }
 
-pub fn gen_kernel(attr: &TokenStream, input_fn: ItemFn) {
+pub fn gen_kernel(attr: &TokenStream, input_fn: ItemFn, device_fns: HashMap<String, syn::ItemFn>) {
     let mut kernel_generator = Generator::new();
     kernel_generator.gen_include_headers();
     kernel_generator.gen_header_constants(100, 100);

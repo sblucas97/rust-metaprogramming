@@ -7,5 +7,6 @@ edition = "2024"
 [dependencies]
 lib  = { path = "../lib" }
 lib_core = { path = "../lib_core" }
+guard-rt = { path = "../guard-rt" }
 libloading = "0.8.8"
 syn = "2.0.110"

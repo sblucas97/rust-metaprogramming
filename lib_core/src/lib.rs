@@ -96,3 +96,75 @@ impl<T> Drop for CudaVec<T> {
         }
     }
 }
+
+pub trait KernelName {
+    fn kernel_name() -> &'static str;
+}
+
+pub fn spawn<K: KernelName>(a_h: CudaVec<f32>, b_h: CudaVec<f32>, r_h: &mut Vec<f32>) {
+    let function_name = K::kernel_name();
+    let output_lib_path_generated = format!("kernel_and_launcher_generated_for_{function_name}.so");
+    
+    let output = std::process::Command::new("nvcc")
+        .arg("-arch=sm_86")
+        .arg(format!("generated_{function_name}.cu"))
+        .arg(format!("generated_{function_name}_launcher.cu"))
+        .arg("-o")
+        .arg(&output_lib_path_generated)
+        .arg("--shared")
+        .arg("-Xcompiler")
+        .arg("-fPIC")
+        .arg("-x")
+        .arg("cu")
+        .output()
+        .expect("Failed to execute nvcc");
+
+    if !output.stdout.is_empty() {
+        eprintln!("NVCC stdout:\n{}", String::from_utf8_lossy(&output.stdout));
+    }
+    if !output.stderr.is_empty() {
+        eprintln!("NVCC stderr:\n{}", String::from_utf8_lossy(&output.stderr));
+    }
+    if !output.status.success() {
+        panic!("nvcc compilation failed with exit code: {:?}", output.status.code());
+    }
+
+    let absolute_path = std::env::current_dir()
+        .unwrap()
+        .join(&output_lib_path_generated);
+
+    eprintln!("Loading library from: {}", absolute_path.display());
+
+    unsafe {
+        let mut result_device_ptr: *mut f32 = std::ptr::null_mut();
+        crate::custom_allocate_gpu_mem(&mut result_device_ptr as *mut *mut f32);
+
+        type LaunchKernelFuncFloat = unsafe extern "C" fn(
+            *mut std::os::raw::c_float,
+            *mut std::os::raw::c_float,
+            *mut std::os::raw::c_float
+        );
+
+        let lib = libloading::Library::new(&absolute_path)
+            .expect("Failed to load library");
+
+        let launch_fn_name = format!("launch_generated_{function_name}");
+        let symbol_name = std::ffi::CString::new(launch_fn_name)
+            .expect("Failed to create CString");
+
+        let launch_kernel_symbol: libloading::Symbol<LaunchKernelFuncFloat> =
+            lib.get(symbol_name.as_bytes_with_nul())
+                .expect("Failed to get symbol");
+
+        launch_kernel_symbol(
+            a_h.get_device_ptr() as *mut std::os::raw::c_float,
+            b_h.get_device_ptr() as *mut std::os::raw::c_float,
+            result_device_ptr as *mut std::os::raw::c_float,
+        );
+
+        let result_size = a_h.len();
+        r_h.resize(result_size, 0.0);
+        crate::custom_copy_from_gpu(r_h.as_mut_ptr(), result_device_ptr);
+        crate::custom_free_gpu_mem(result_device_ptr);
+    }
+}
