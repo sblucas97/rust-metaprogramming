@@ -3,6 +3,7 @@ extern crate proc_macro;
 use std::sync::Mutex;
 use once_cell::sync::Lazy;
 use proc_macro::TokenStream;
+use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::parse_macro_input;
 use std::collections::HashMap;
@@ -68,7 +69,6 @@ pub fn kernel(attr: TokenStream, item: TokenStream) -> TokenStream {
     let expanded = quote! {
         pub mod #function_name_ident {
             use super::*;
-            use lib_core::KernelName;
 
             #sig {
                 let _guard = guard_rt::KernelContextGuard::new();
@@ -100,6 +100,15 @@ pub fn device_function(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let attrs = &input_fn.attrs;
     let name = &input_fn.sig.ident;
 
+    // extract return type to generate a default return value
+    let default_return = match &input_fn.sig.output {
+        syn::ReturnType::Default => quote! {},
+        syn::ReturnType::Type(_, ty) => quote! {
+            let default: #ty = Default::default();
+            default
+        },
+    };
+
     let expanded = quote! {
         #(#attrs)*
         #vis #sig {
@@ -112,6 +121,7 @@ pub fn device_function(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             });
             #block
+            #default_return
         }
     };
 

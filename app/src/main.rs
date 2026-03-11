@@ -3,22 +3,22 @@ use lib::{cuda_module};
 
 #[cuda_module]
 mod kernels {
-    use lib_core::CudaVec;
+    use lib_core::{CudaVec, KernelName};
     use lib::{kernel, device_function};
 
     #[device_function] 
-    pub fn multiply(idx: u64) {
-        let x = 10 + 5;
+    pub fn normalize(val: f32) -> f32 {
+        return (val - 10.0f32) / (500.0f32 - 10.0f32);
     }
-
+    
     #[kernel]
     fn mm(cc: &CudaVec<f32>, dd: &CudaVec<f32>, ee: &mut CudaVec<f32>) {
         let idx: u64 = blockIdx.x * blockDim.x + threadIdx.x;
 
-        // multiply(idx);
-
         if (idx < ROWS * COLS) {
-            ee[idx] = cc[idx] * dd[idx];
+            let normA: f32 = normalize(cc[idx]);
+            let normB: f32 = normalize(dd[idx]);
+            ee[idx] = normA * normB;
         }
     }
 }
@@ -32,7 +32,7 @@ fn main() {
 
     spawn::<kernels::mm::Marker>(a_host_data, b_host_data, &mut result_host_data);
 
-    // for n in result_host_data.iter() {
-    //     println!("{}", n);
-    // }
+    for n in result_host_data.iter() {
+        println!("{}", n);
+    }
 }

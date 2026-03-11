@@ -162,11 +162,13 @@ impl Generator {
             if let syn::FnArg::Typed(pat_type) = arg {
                 if let syn::Pat::Ident(pat_ident) = &*pat_type.pat {
                     let arg_name = pat_ident.ident.to_string();
+                    // println!("Name: {:?}", arg_name);
+                    // println!("Type: {:?}", pat_type);
+                    // println!("@@@@@@@@@@@@@@@@@@@@@@@");
                     
-                    let (rust_type, is_mut) = match &*pat_type.ty {
+                    let (rust_type, is_mut, is_ref) = match &*pat_type.ty {
                         syn::Type::Reference(type_ref) => {
                             let is_mut = type_ref.mutability.is_some();
-
                             match &*type_ref.elem {
                                 syn::Type::Path(type_path) => {
                                     let segment = type_path.path.segments.last().unwrap();
@@ -176,7 +178,7 @@ impl Generator {
                                         if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
                                             if let Some(syn::GenericArgument::Type(syn::Type::Path(inner_path))) = args.args.first() {
                                                 let inner_segment = inner_path.path.segments.last().unwrap();
-                                                (inner_segment.ident.to_string(), is_mut)
+                                                (inner_segment.ident.to_string(), is_mut, true)
                                             } else {
                                                 continue;
                                             }
@@ -184,10 +186,13 @@ impl Generator {
                                             continue;
                                         }
                                     } else {
-                                        (segment.ident.to_string(), is_mut)
+                                        (segment.ident.to_string(), is_mut, true)
                                     }
                                 }
-                                _ => continue,
+                                _ => {
+                                    println!("{:#?}", type_ref);
+                                    continue
+                                },
                             }
                         }
 
@@ -199,7 +204,7 @@ impl Generator {
                                     if let Some(syn::GenericArgument::Type(syn::Type::Path(inner_path))) = args.args.first() {
                                         let inner_segment = inner_path.path.segments.last().unwrap();
 
-                                        (inner_segment.ident.to_string(), true)
+                                        (inner_segment.ident.to_string(), true, false)
                                     } else {
                                         continue;
                                     }
@@ -207,17 +212,19 @@ impl Generator {
                                     continue;
                                 }
                             } else {
-                                println!("{:?}", type_path);
-                                continue;
+                                (segment.ident.to_string(), false, false)
                             }
                         }
-                        _ => continue,
+                        _ => {
+                            continue
+                        },
                     };
+                    
                     let c_type = self.map_type(&rust_type);
-                    let param_repr = if is_mut {
-                        format!("{} *{}", c_type, arg_name)
-                    } else {
-                        format!("const {} *{}", c_type, arg_name)
+                    let param_repr = match (is_ref, is_mut) {
+                        (false, _)     => format!("{} {}", c_type, arg_name),          // plain value: int x
+                        (true, true)   => format!("{} *{}", c_type, arg_name),         // mut ref:     int *x
+                        (true, false)  => format!("const {} *{}", c_type, arg_name),   // shared ref:  const int *x
                     };
 
                     params.push(param_repr);
@@ -247,6 +254,61 @@ impl Generator {
         r.push_str("}\n");
 
         self.file_content.push_str(&r);
+    }
+    
+    pub fn gen_device_fn_signature(&mut self, fn_name: &str, input_fn: &syn::ItemFn) -> String {
+        let return_type = match &input_fn.sig.output {
+            syn::ReturnType::Default => "()".to_string(),
+            syn::ReturnType::Type(_, ty) => {
+                match ty.as_ref() {
+                    syn::Type::Path(type_path) => {
+                        // e.g. -> MyStruct, -> Result<T>, -> u32
+                        let ty_name = type_path.path.segments
+                            .last()
+                            .unwrap()
+                            .ident.to_string();
+                        self.map_type(&ty_name)
+                    }
+                    syn::Type::Reference(type_ref) => {
+                        // e.g. -> &str, -> &MyStruct
+                        format!("&{:?}", type_ref.elem)
+                    }
+                    syn::Type::Tuple(tuple) if tuple.elems.is_empty() => {
+                        // explicit -> ()
+                        "()".to_string()
+                    }
+                    _ => {
+                        println!("Not recognized return type in gen_device_fn_signature");
+                        "()".to_string()
+                    }
+                }
+            },
+        };
+
+        let params_string = self.gen_kernel_arguments(input_fn);
+        format!("__device__ {} {}({})", return_type, fn_name, params_string)
+    }
+
+    fn gen_device_functions(&mut self, device_fns: HashMap<String, syn::ItemFn>) {
+        // println!("######################################################");
+        // println!("{:#?}", device_fns);
+        // println!("######################################################");
+
+        for (fn_name, item_fn) in device_fns.iter() {
+            let fn_signature = self.gen_device_fn_signature(fn_name, item_fn);
+            let mut r = format!("{} {{\n", fn_signature);
+            self.indent += 1;
+
+            for stmt in &item_fn.block.stmts {
+                r.push_str(&self.gen_stmt(stmt));
+            }
+
+            self.indent -= 1;
+            r.push_str("}\n\n");
+
+            self.file_content.push_str(&r);
+        }
+
     }
 
     pub fn gen_stmt(&mut self, stmt: &syn::Stmt) -> String {
@@ -280,7 +342,7 @@ impl Generator {
     }
 
     pub fn gen_local(&mut self, local: &syn::Local) -> String {
-        println!("{:#?}", local);
+        // println!("{:#?}", local);
         if let syn::Pat::Type(pat_type) = &local.pat {
             if let syn::Pat::Ident(pat_ident) = &*pat_type.pat {
                 let name = pat_ident.ident.to_string();
@@ -331,25 +393,33 @@ impl Generator {
             syn::Expr::Assign(expr_assing) => self.gen_expr_assing(expr_assing),
             syn::Expr::Index(expr_index) => self.gen_expr_index(expr_index),
             syn::Expr::Call(expr_call) => self.gen_expr_call(expr_call),
+            syn::Expr::Return(expr_return) => self.gen_expr_return(expr_return),
             _ => {
-                println!("{:#?}", expr);
+                // println!("{:#?}", expr);
                 String::new()
             }
         }
     }
 
+    fn gen_expr_return(&mut self, expr_return: &syn::ExprReturn) -> String {
+        let return_val = match &expr_return.expr {
+            Some(expr) => self.gen_expr(expr),
+            None => panic!("Return value needed")
+        };
+        format!("{}return {}", self.indent_str(), return_val)
+    }
+
     fn gen_expr_call(&mut self, expr_call: &syn::ExprCall) -> String {
-        println!("######################################################");
-        println!("######################################################");
-        println!("{:#?}", expr_call);
-        println!("######################################################");
-        println!("######################################################");
         let func = self.gen_expr(&expr_call.func);
-        format!("{}", func)
+
+        let args = match &expr_call.args.first() {
+            Some(expr) => self.gen_expr(expr),
+            None => String::new()
+        };
+        format!("{}({})", func, args)
     }
 
     fn gen_expr_index(&mut self, expr_index: &syn::ExprIndex) -> String {
-        
         let expr = self.gen_expr(&expr_index.expr);
         let idx = self.gen_expr(&expr_index.index);
         format!("{}[{}]", expr, idx)
@@ -382,9 +452,11 @@ impl Generator {
     fn gen_lit(&self, lit: &syn::ExprLit) -> String {
         match &lit.lit {
             syn::Lit::Int(int_lit) => int_lit.base10_digits().to_string(),
-            _ => String::new(),
+            syn::Lit::Float(float_lit) => float_lit.base10_digits().to_string(),
+            l => panic!("gen_lit error: {:?} was not implemented yet", l),
         }
     }
+
 }
 
 pub fn gen_kernel(attr: &TokenStream, input_fn: ItemFn, device_fns: HashMap<String, syn::ItemFn>) {
@@ -396,6 +468,7 @@ pub fn gen_kernel(attr: &TokenStream, input_fn: ItemFn, device_fns: HashMap<Stri
     let name = format!("generated_{fn_name}");
     let extension = "cu";
 
+    kernel_generator.gen_device_functions(device_fns);
     kernel_generator.gen_kernel(&fn_name, &input_fn);
 
     kernel_generator.gen_output_file(&name, &extension);
