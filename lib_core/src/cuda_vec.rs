@@ -40,10 +40,14 @@ impl<T> CudaVec<T> {
         match vec_type {
             "f32" => {
                 let mut device_ptr: *mut f32 = std::ptr::null_mut();           
-                ffi::cuda_allocate(&mut device_ptr as *mut *mut f32);
+                ffi::cuda_allocate(&mut device_ptr as *mut *mut f32, data.len());
                 if !data.is_empty() {
                     println!("Copying to GPU");
-                    ffi::cuda_copy_to_device(device_ptr, data.as_ptr() as *mut f32);
+                    ffi::cuda_copy_to_device(
+                        device_ptr, 
+                        data.as_ptr() as *mut f32,
+                        data.len()
+                    );
                 }
 
                 Self {
@@ -68,6 +72,20 @@ impl<T> CudaVec<T> {
 
     pub fn get_device_ptr(&self) -> *mut T {
         self.device_ptr
+    }
+
+    pub fn copy_from_device(&mut self) {
+        let vec_type = std::any::type_name::<T>();
+        match vec_type {
+            "f32" => {
+                ffi::cuda_copy_to_host(
+                    self.data.as_mut_ptr() as *mut f32,
+                    self.device_ptr as *mut f32,
+                    self.data.len()
+                );
+            }
+            _ => panic!("copy_from_device: type {} not supported", vec_type),
+        }
     }
 } 
 

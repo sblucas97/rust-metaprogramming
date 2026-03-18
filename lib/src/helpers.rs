@@ -162,9 +162,6 @@ impl Generator {
             if let syn::FnArg::Typed(pat_type) = arg {
                 if let syn::Pat::Ident(pat_ident) = &*pat_type.pat {
                     let arg_name = pat_ident.ident.to_string();
-                    // println!("Name: {:?}", arg_name);
-                    // println!("Type: {:?}", pat_type);
-                    // println!("@@@@@@@@@@@@@@@@@@@@@@@");
                     
                     let (rust_type, is_mut, is_ref) = match &*pat_type.ty {
                         syn::Type::Reference(type_ref) => {
@@ -394,11 +391,59 @@ impl Generator {
             syn::Expr::Index(expr_index) => self.gen_expr_index(expr_index),
             syn::Expr::Call(expr_call) => self.gen_expr_call(expr_call),
             syn::Expr::Return(expr_return) => self.gen_expr_return(expr_return),
+            syn::Expr::ForLoop(expr_for_loop) => self.gen_expr_for_loop(expr_for_loop),
             _ => {
-                // println!("{:#?}", expr);
+                println!("{:#?}", expr);
                 String::new()
             }
         }
+    }
+
+    fn gen_expr_for_loop(&mut self, expr_for_loop: &syn::ExprForLoop) -> String{
+        
+        let loop_var = match &*expr_for_loop.pat {
+            syn::Pat::Ident(pat_ident) => pat_ident.ident.to_string(),
+            _ => panic!("Unsupported for loop pattern"),
+        };
+
+        let (start, end, step) = match &*expr_for_loop.expr {
+            syn::Expr::MethodCall(method_call) if method_call.method == "step_by" => {
+                let step = self.gen_expr(&method_call.args[0]);
+
+                // Tuple receiver: (idx, n)
+                match &*method_call.receiver {
+                    syn::Expr::Tuple(tuple) if tuple.elems.len() == 2 => {
+                        let start = self.gen_expr(&tuple.elems[0]);
+                        let end = self.gen_expr(&tuple.elems[1]);
+                        (start, end, step)
+                    }
+                    _ => panic!("Expected a 2-element tuple as step_by receiver"),
+                }
+            }
+            _ => panic!("Unsupported for loop iterator expression"),
+        };
+
+        let body_stmts: String = expr_for_loop
+            .body
+            .stmts
+            .iter()
+            .map(|stmt| match stmt {
+                syn::Stmt::Expr(e, _) => format!("    {};\n", self.gen_expr(&e)),
+                syn::Stmt::Local(local) => self.gen_local(&local),
+                _ => String::new(),
+            })
+            .collect();
+
+        format!(
+            "{indent_beginning}for (int {var} = {start}; {var} < {end}; {var} += {step}) {{\n{body}{indent_end}}}",
+            indent_beginning = self.indent_str(),
+            var = loop_var,
+            start = start,
+            end = end,
+            step = step,
+            body = body_stmts,
+            indent_end = self.indent_str()
+        )
     }
 
     fn gen_expr_return(&mut self, expr_return: &syn::ExprReturn) -> String {
@@ -459,10 +504,22 @@ impl Generator {
 
 }
 
-pub fn gen_kernel(attr: &TokenStream, input_fn: ItemFn, device_fns: HashMap<String, syn::ItemFn>) {
+pub fn gen_kernel(
+    _attr: &TokenStream, 
+    input_fn: ItemFn, 
+    device_fns: HashMap<String, syn::ItemFn>,
+    rows: Option<u64>,
+    cols: Option<u64>
+) {
     let mut kernel_generator = Generator::new();
     kernel_generator.gen_include_headers();
-    kernel_generator.gen_header_constants(100, 100);
+
+    match (rows, cols) {
+        (None, None) => {},
+        (Some(_), None) => {},
+        (None, Some(_)) => {},
+        (Some(r), Some(c)) => kernel_generator.gen_header_constants(r, c),
+    }
 
     let fn_name = input_fn.sig.ident.to_string();
     let name = format!("generated_{fn_name}");
