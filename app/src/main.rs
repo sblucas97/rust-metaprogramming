@@ -1,38 +1,32 @@
-use lib_core::{CudaVec, spawn};
-use lib::{cuda_module};
+use lib_core::{CudaVec};
+use lib::spawn;
 
-#[cuda_module]
-mod kernels {
-    use lib_core::{CudaVec, KernelName};
-    use lib::{kernel, device_function};
+mod mult_k;
+mod vector_sum_k;
+use mult_k::mm_kernel;
+use vector_sum_k::vector_sum_kernel;
+// use mult_k::mm_kernel::mm;
 
-    #[device_function] 
-    pub fn normalize(val: f32) -> f32 {
-        return (val - 10.0f32) / (500.0f32 - 10.0f32);
-    }
-    
-    #[kernel]
-    fn mm(cc: &CudaVec<f32>, dd: &CudaVec<f32>, ee: &mut CudaVec<f32>) {
-        let idx: u64 = blockIdx.x * blockDim.x + threadIdx.x;
 
-        if (idx < ROWS * COLS) {
-            let normA: f32 = normalize(cc[idx]);
-            let normB: f32 = normalize(dd[idx]);
-            ee[idx] = normA * normB;
-        }
-    }
-}
-    
 fn main() {
-    let mut a_host_data: CudaVec<f32> = CudaVec::new((1..=100*100).map(|x| x as f32).collect());
-    let mut b_host_data: CudaVec<f32> = CudaVec::new((1..=100*100).map(|x| x as f32).collect());
+    let size: usize = 10_000_000;
+    let mut a_host_data: CudaVec<f32> = CudaVec::new(vec![1.0f32; size]);
+    let mut b_host_data: CudaVec<f32> = CudaVec::new(vec![1.0f32; size]);
     let mut result_host_data: Vec<f32> = Vec::new();
+    let n: u64 = size as u64;
     
+    spawn!(vector_sum_kernel::add_vectors, a_host_data, b_host_data, > result_host_data: f32, n: u64);
     // multiply(10);
 
-    spawn::<kernels::mm::Marker>(a_host_data, b_host_data, &mut result_host_data);
+    // let x: Vec<f32> = vec![1.0f32];
+    // x.iter().map(|x| x * 2);
 
-    for n in result_host_data.iter() {
-        println!("{}", n);
-    }
+    // gpufor!(a_host_data -> |x| x * 2);
+    
+    // spawn!(mm_kernel::mm, a_host_data, b_host_data, > result_host_data: f32);
+    
+
+    // for n in result_host_data.iter() {
+    //     println!("{}", n);
+    // }
 }
