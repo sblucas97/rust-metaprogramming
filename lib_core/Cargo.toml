@@ -13,3 +13,4 @@ cc = "1.0"
 
 [dependencies]
 libloading = "0.7"
+cudarc = { version = "0.19.3", features = ["cuda-version-from-build-system"] }

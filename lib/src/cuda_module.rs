@@ -81,7 +81,39 @@ pub fn cuda_module_impl(attr: TokenStream, item: TokenStream) -> TokenStream {
                     args.rows,
                     args.cols,
                 );
-                helpers::gen_launcher(&TokenStream::new(), func.clone());
+
+                let name = func.sig.ident.to_string();
+                let ptx_name = format!("generated_{name}.ptx");
+                let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
+                    .unwrap_or_else(|_| std::env::current_dir().unwrap().to_string_lossy().to_string());
+                let ptx_path = std::path::Path::new(&manifest_dir).join(&ptx_name);
+                let ptx_path_str = ptx_path.to_string_lossy().to_string();
+
+                let output = std::process::Command::new("nvcc")
+                    .args([
+                        "-arch=sm_86",
+                        "-ptx",
+                        &format!("generated_{name}.cu"),
+                        "-o",
+                        &ptx_path_str,
+                    ])
+                    .output()
+                    .expect("failed to run nvcc — is it on PATH?");
+
+                if !output.stdout.is_empty() {
+                    eprintln!("nvcc stdout:\n{}", String::from_utf8_lossy(&output.stdout));
+                }
+                if !output.stderr.is_empty() {
+                    eprintln!("nvcc stderr:\n{}", String::from_utf8_lossy(&output.stderr));
+                }
+                if !output.status.success() {
+                    panic!(
+                        "nvcc PTX compilation failed (exit {:?}) for kernel `{name}`",
+                        output.status.code()
+                    );
+                }
+
+                eprintln!("spawn: generated PTX {}", ptx_path.display());
             }
         }
     }

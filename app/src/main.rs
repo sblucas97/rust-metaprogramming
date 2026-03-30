@@ -1,21 +1,51 @@
-use lib_core::{CudaVec};
+use lib_core::CudaVec;
 use lib::spawn;
 
 mod mult_k;
 mod vector_sum_k;
-use mult_k::mm_kernel;
-use vector_sum_k::vector_sum_kernel;
 // use mult_k::mm_kernel::mm;
 
 
 fn main() {
-    let size: usize = 10_000_000;
-    let mut a_host_data: CudaVec<f32> = CudaVec::new(vec![1.0f32; size]);
-    let mut b_host_data: CudaVec<f32> = CudaVec::new(vec![1.0f32; size]);
-    let mut result_host_data: Vec<f32> = Vec::new();
+    let size: usize = 10_000;
+    let a_host_data: CudaVec<f32> = CudaVec::new(vec![2.0f32; size]);
+    let b_host_data: CudaVec<f32> = CudaVec::new(vec![3.0f32; size]);
+    let mut result_host_data_1: CudaVec<f32> = CudaVec::new(vec![0.0f32; size]);
     let n: u64 = size as u64;
+
+    spawn!(
+        // vector_sum_k::add_vectors,
+        mult_k::mm_kernel::mm,
+        a_host_data,
+        b_host_data,
+        result_host_data_1,
+        n
+    );
     
-    spawn!(vector_sum_kernel::add_vectors, a_host_data, b_host_data, > result_host_data: f32, n: u64);
+    result_host_data_1.copy_from_device();
+    for n in result_host_data_1.as_slice() {
+        println!("{}", n);
+    }
+    // let config = lib_core::launch::LaunchConfig::for_num_elems(n as u32);
+    // let generated_ptx = format!("{}/generated_add_vectors.ptx", env!("CARGO_MANIFEST_DIR"));
+    // lib_core::launch::launch_generated_ptx(
+    //     generated_ptx,
+    //     (
+    //         a_host_data.get_device_ptr() as u64,
+    //         b_host_data.get_device_ptr() as u64,
+    //         result_host_data_1.get_device_ptr() as u64,
+    //         n,
+    //     ),
+    //     config,
+    // )
+    // .expect("failed to launch generated add_vectors kernel");
+
+    // spawn!(
+    //     mm_kernel::mm, 
+    //     a_host_data, 
+    //     b_host_data, 
+    //     > result_host_data_2: f32
+    // );
     // multiply(10);
 
     // let x: Vec<f32> = vec![1.0f32];
@@ -25,8 +55,11 @@ fn main() {
     
     // spawn!(mm_kernel::mm, a_host_data, b_host_data, > result_host_data: f32);
     
+    // for n in result_host_data_1.iter() {
+    //     println!("{}", n);
+    // }
 
-    // for n in result_host_data.iter() {
+    // for n in result_host_data_2.iter() {
     //     println!("{}", n);
     // }
 }

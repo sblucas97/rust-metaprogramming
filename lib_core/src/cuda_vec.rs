@@ -34,6 +34,25 @@ impl<T> std::ops::Index<u64> for CudaVec<T> {
 }
 
 impl<T> CudaVec<T> {
+    pub fn new_empty(data: Vec<T>, size: usize) -> Self {
+
+        let vec_type = std::any::type_name::<T>();
+        match vec_type {
+            "f32" => {
+                let mut device_ptr: *mut f32 = std::ptr::null_mut();           
+                ffi::cuda_allocate(&mut device_ptr as *mut *mut f32, size);
+                Self {
+                    data: data,
+                    device_ptr: device_ptr as *mut T
+                }
+            }
+
+            _ => {
+                panic!("Error: Type {} not supported", vec_type);
+            }
+        }
+    }
+
     pub fn new(data: Vec<T>) -> Self {
 
         let vec_type = std::any::type_name::<T>();
@@ -42,7 +61,6 @@ impl<T> CudaVec<T> {
                 let mut device_ptr: *mut f32 = std::ptr::null_mut();           
                 ffi::cuda_allocate(&mut device_ptr as *mut *mut f32, data.len());
                 if !data.is_empty() {
-                    println!("Copying to GPU");
                     ffi::cuda_copy_to_device(
                         device_ptr, 
                         data.as_ptr() as *mut f32,
@@ -80,14 +98,22 @@ impl<T> CudaVec<T> {
             "f32" => {
                 ffi::cuda_copy_to_host(
                     self.data.as_mut_ptr() as *mut f32,
-                    self.device_ptr as *mut f32,
+                    self.get_device_ptr() as *mut f32,
                     self.data.len()
                 );
             }
             _ => panic!("copy_from_device: type {} not supported", vec_type),
         }
     }
-} 
+
+    pub fn as_slice(&self) -> &[T] {
+        &self.data
+    }
+
+    pub fn as_mut_slice(&mut self) -> &mut [T] {
+        &mut self.data
+    }
+}
 
 impl<T> Drop for CudaVec<T> {
     fn drop(&mut self) {

@@ -2,6 +2,11 @@ use proc_macro::TokenStream;
 use std::{collections::HashMap};
 use syn::{ItemFn};
 
+pub enum GridStrategy {
+    RowsCols,  // int total = ROWS * COLS
+    NParam,    // int total = (int)n
+}
+
 struct Generator {
     file_content: String,
     indent: usize,
@@ -105,12 +110,31 @@ impl Generator {
         self.extract_param_names(params).join(", ")
     }
 
-    pub fn gen_launcher_function(&mut self, block_size: u64, fn_name: &str, input_fn: &ItemFn) {
+    pub fn gen_launcher_function(
+        &mut self, 
+        block_size: u64, 
+        fn_name: &str, 
+        input_fn: &ItemFn,
+        grid_strategy: GridStrategy
+    ) {
         let params_string = self.gen_kernel_arguments(input_fn);
         self.file_content.push_str(&format!(r#"extern "C" void launch_generated_{}({}) {{"#, fn_name, params_string));
         self.file_content.push_str("\n");
         self.indent += 1;
-        self.file_content.push_str(&format!("{}int total = ROWS * COLS; \n", self.indent_str()));
+
+        match grid_strategy {
+            GridStrategy::RowsCols => {
+                self.file_content.push_str(&format!(
+                    "{}int total = ROWS * COLS;\n", self.indent_str()
+                ));
+            }
+            GridStrategy::NParam => {
+                self.file_content.push_str(&format!(
+                    "{}int total = (int)n;\n", self.indent_str()
+                ));
+            }
+        }
+        
         self.file_content.push_str(&format!("{}int block_size = {};\n", self.indent_str(), block_size));
         self.file_content.push_str(&format!("{}int grid_size = (total + block_size - 1) / block_size;\n", self.indent_str()));
         self.file_content.push_str(&format!("{}{}<<<grid_size, block_size>>>({});\n", self.indent_str(), fn_name, self.extract_param_names_joined(&params_string)));
@@ -235,7 +259,7 @@ impl Generator {
 
     pub fn gen_kernel_signature(&mut self, fn_name: &str, input_fn: &syn::ItemFn) -> String {
         let params_string = self.gen_kernel_arguments(input_fn);
-        format!("__global__ void {}({})", fn_name, params_string)
+        format!("extern \"C\" __global__ void {}({})", fn_name, params_string)
     }
 
     pub fn gen_kernel(&mut self, func_name: &str, input_fn: &syn::ItemFn) {
@@ -539,12 +563,37 @@ pub fn gen_kernel(
     kernel_header_generator.gen_output_file(&h_name, h_extension);
 }
 
-pub fn gen_launcher(attr: &TokenStream, input_fn: ItemFn) {
+pub fn gen_launcher(
+    _attr: &TokenStream, 
+    input_fn: ItemFn,
+    rows: Option<u64>,
+    cols: Option<u64>,
+) {
     let mut generator: Generator = Generator::new();
     let fn_name = input_fn.sig.ident.to_string();
-    generator.gen_include_headers_launcher(&fn_name);
-    generator.gen_header_constants_launcher(100, 100);
-    generator.gen_launcher_function(256, &fn_name, &input_fn);
+        generator.gen_include_headers_launcher(&fn_name);
+
+    match (rows, cols) {
+        (Some(r), Some(c)) => generator.gen_header_constants_launcher(r, c),
+        _ => {}
+    }
+
+    let has_n_param = input_fn.sig.inputs.iter().any(|arg| {
+        if let syn::FnArg::Typed(pat_type) = arg {
+            if let syn::Pat::Ident(pat_ident) = &*pat_type.pat {
+                return pat_ident.ident == "n";
+            }
+        }
+        false
+    });
+
+    let grid_strategy = match (rows, cols, has_n_param) {
+        (Some(_), Some(_), _) => GridStrategy::RowsCols,
+        (_, _, true)          => GridStrategy::NParam,
+        _                     => panic!("You must either define ROWS and COLS in cuda_module or define an 'n' param at the end of the kernel arguments")
+    };
+
+    generator.gen_launcher_function(256, &fn_name, &input_fn, grid_strategy);
     let extension = "cu";
     let name = format!("generated_{fn_name}_launcher");
     generator.gen_output_file(&name, &extension);
