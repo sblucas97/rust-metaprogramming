@@ -2,11 +2,6 @@ use proc_macro::TokenStream;
 use std::{collections::HashMap};
 use syn::{ItemFn};
 
-pub enum GridStrategy {
-    RowsCols,  // int total = ROWS * COLS
-    NParam,    // int total = (int)n
-}
-
 struct Generator {
     file_content: String,
     indent: usize,
@@ -73,100 +68,10 @@ impl Generator {
             .expect("Failed to write kernel file");
     }
 
-    pub fn gen_include_headers_launcher(&mut self, fn_name: &str) {
-        let stdio = "#include<stdio.h>";
-        let cuda_runtime = "#include<cuda_runtime.h>";
-        let include_headers = format!("{}\n{}\n", stdio, cuda_runtime);
-
-        self.file_content.push_str(&include_headers);
-        self.file_content.push_str(&format!(r#"#include "generated_{}.h""#, fn_name));
-        self.file_content.push_str("\n");
-    }
-
-    pub fn gen_header_constants_launcher(&mut self, rows: u64, cols: u64) {
-        let define_str = "#define";
-        let rows_str = "ROWS";
-        let cols_str = "COLS";
-        self.file_content
-            .push_str(&format!("\n{} {} {}\n", define_str, rows_str, rows));
-        self.file_content
-            .push_str(&format!("{} {} {}\n\n", define_str, cols_str, cols));
-    }
-
-    pub fn extract_param_names(&self, params: &str) -> Vec<String> {
-        params
-            .split(',')
-            .map(|p| {
-                let p = p.trim();
-                let last = p.split_whitespace().last().unwrap_or("");
-                last.trim_start_matches('*')
-                    .trim_start_matches('&')
-                    .to_string()
-            })
-            .collect()
-    }
-
-    pub fn extract_param_names_joined(&self, params: &str) -> String {
-        self.extract_param_names(params).join(", ")
-    }
-
-    pub fn gen_launcher_function(
-        &mut self, 
-        block_size: u64, 
-        fn_name: &str, 
-        input_fn: &ItemFn,
-        grid_strategy: GridStrategy
-    ) {
-        let params_string = self.gen_kernel_arguments(input_fn);
-        self.file_content.push_str(&format!(r#"extern "C" void launch_generated_{}({}) {{"#, fn_name, params_string));
-        self.file_content.push_str("\n");
-        self.indent += 1;
-
-        match grid_strategy {
-            GridStrategy::RowsCols => {
-                self.file_content.push_str(&format!(
-                    "{}int total = ROWS * COLS;\n", self.indent_str()
-                ));
-            }
-            GridStrategy::NParam => {
-                self.file_content.push_str(&format!(
-                    "{}int total = (int)n;\n", self.indent_str()
-                ));
-            }
-        }
-        
-        self.file_content.push_str(&format!("{}int block_size = {};\n", self.indent_str(), block_size));
-        self.file_content.push_str(&format!("{}int grid_size = (total + block_size - 1) / block_size;\n", self.indent_str()));
-        self.file_content.push_str(&format!("{}{}<<<grid_size, block_size>>>({});\n", self.indent_str(), fn_name, self.extract_param_names_joined(&params_string)));
-        self.file_content.push_str(&format!("{}cudaDeviceSynchronize();\n", self.indent_str()));
-        self.indent -= 1;
-        self.file_content.push_str("}");
-    }
-
     pub fn gen_include_headers(&mut self) {
         self.file_content.push_str("#include<stdio.h>\n");
         self.file_content.push_str("#include<cstdint>\n");
         self.file_content.push_str("#include<cuda_runtime.h>\n\n");
-    }
-
-    pub fn gen_kernel_header_headers(&mut self) {
-        self.file_content.push_str("#ifndef KERNEL_H\n");
-        self.file_content.push_str("#define KERNEL_H\n\n");
-        
-        self.file_content.push_str("#include<stdio.h>\n");
-        self.file_content.push_str("#include<cstdint>\n");
-        self.file_content.push_str("#include<cuda_runtime.h>\n\n");
-    }
-
-    pub fn gen_kernel_header_end_file(&mut self) {
-        self.file_content.push_str("#endif");
-    }
-
-    pub fn gen_kernel_header_fn_signature(&mut self, func_name: &str, input_fn: &ItemFn) {
-        let fn_signature = self.gen_kernel_signature(func_name, input_fn);
-        self.file_content.push_str("\n");
-        self.file_content.push_str(&fn_signature);
-        self.file_content.push_str(";\n\n");
     }
 
     pub fn gen_header_constants(&mut self, rows: u64, cols: u64) {
@@ -553,48 +458,4 @@ pub fn gen_kernel(
     kernel_generator.gen_kernel(&fn_name, &input_fn);
 
     kernel_generator.gen_output_file(&name, &extension);
-
-    let mut kernel_header_generator = Generator::new();
-    let h_name = format!("generated_{fn_name}");
-    let h_extension = "h";
-    kernel_header_generator.gen_kernel_header_headers();
-    kernel_header_generator.gen_kernel_header_fn_signature(&fn_name, &input_fn);
-    kernel_header_generator.gen_kernel_header_end_file();
-    kernel_header_generator.gen_output_file(&h_name, h_extension);
-}
-
-pub fn gen_launcher(
-    _attr: &TokenStream, 
-    input_fn: ItemFn,
-    rows: Option<u64>,
-    cols: Option<u64>,
-) {
-    let mut generator: Generator = Generator::new();
-    let fn_name = input_fn.sig.ident.to_string();
-        generator.gen_include_headers_launcher(&fn_name);
-
-    match (rows, cols) {
-        (Some(r), Some(c)) => generator.gen_header_constants_launcher(r, c),
-        _ => {}
-    }
-
-    let has_n_param = input_fn.sig.inputs.iter().any(|arg| {
-        if let syn::FnArg::Typed(pat_type) = arg {
-            if let syn::Pat::Ident(pat_ident) = &*pat_type.pat {
-                return pat_ident.ident == "n";
-            }
-        }
-        false
-    });
-
-    let grid_strategy = match (rows, cols, has_n_param) {
-        (Some(_), Some(_), _) => GridStrategy::RowsCols,
-        (_, _, true)          => GridStrategy::NParam,
-        _                     => panic!("You must either define ROWS and COLS in cuda_module or define an 'n' param at the end of the kernel arguments")
-    };
-
-    generator.gen_launcher_function(256, &fn_name, &input_fn, grid_strategy);
-    let extension = "cu";
-    let name = format!("generated_{fn_name}_launcher");
-    generator.gen_output_file(&name, &extension);
 }
