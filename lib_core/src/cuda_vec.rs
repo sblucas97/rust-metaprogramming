@@ -128,10 +128,6 @@ impl<T> Drop for CudaVec<T> {
         let vec_type = std::any::type_name::<T>();
         match vec_type {
             "f32" => {
-                eprintln!(
-                    "CudaVec<f32>: freeing device memory at {:?}",
-                    self.device_ptr
-                );
                 ffi::cuda_free(self.device_ptr as *mut f32);
             }
             _ => {
