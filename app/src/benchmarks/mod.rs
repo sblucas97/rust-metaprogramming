@@ -1,6 +1,6 @@
-pub mod julia_k;
+pub mod julia;
 pub mod mm;
-pub mod vector_sum_k;
+pub mod vector_sum;
 
 use std::time::Instant;
 

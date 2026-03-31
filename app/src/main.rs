@@ -15,7 +15,7 @@ fn main() {
         .and_then(|s| s.parse().ok())
         .unwrap_or(8000);
 
-    benchmarks::run_timed("vector_sum", || benchmarks::vector_sum_k::run(vs_size));
+    benchmarks::run_timed("vector_sum", || benchmarks::vector_sum::run(vs_size));
     benchmarks::run_timed("matrix_mult", || benchmarks::mm::run(mm_size));
-    benchmarks::run_timed("julia", || benchmarks::julia_k::run(julia_size));
+    benchmarks::run_timed("julia", || benchmarks::julia::run(julia_size));
 }
