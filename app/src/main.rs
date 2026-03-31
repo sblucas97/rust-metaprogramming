@@ -3,29 +3,35 @@ use lib::spawn;
 
 mod mult_k;
 mod vector_sum_k;
+mod julia_k;
 // use mult_k::mm_kernel::mm;
 
 
 fn main() {
-    let size: usize = 10_000;
-    let a_host_data: CudaVec<f32> = CudaVec::new(vec![2.0f32; size]);
-    let b_host_data: CudaVec<f32> = CudaVec::new(vec![3.0f32; size]);
-    let mut result_host_data_1: CudaVec<f32> = CudaVec::new(vec![0.0f32; size]);
-    let n: u64 = size as u64;
-
-    spawn!(
-        // vector_sum_k::add_vectors,
-        mult_k::mm_kernel::mm,
-        a_host_data,
-        b_host_data,
-        result_host_data_1,
-        n
-    );
-    
-    result_host_data_1.copy_from_device();
-    for n in result_host_data_1.as_slice() {
+    let x = julia_k::run(8000);
+    for n in x.as_slice() {
         println!("{}", n);
     }
+    // let size: usize = 10_000;
+    // let a_host_data: CudaVec<f32> = CudaVec::new(vec![2.0f32; size]);
+    // let b_host_data: CudaVec<f32> = CudaVec::new(vec![3.0f32; size]);
+    // let mut result_host_data_1: CudaVec<f32> = CudaVec::new(vec![0.0f32; size]);
+    // let n: u64 = size as u64;
+
+    // spawn!(
+    //     julia_k::julia_k::julia_kernel,
+    //     (size as u32, size as u32, 1),
+    //     (1, 1, 1),
+    //     a_host_data,
+    //     b_host_data,
+    //     result_host_data_1,
+    //     1000
+    // );
+    
+    // result_host_data_1.copy_from_device();
+    // for n in result_host_data_1.as_slice() {
+    //     println!("{}", n);
+    // }
     // let config = lib_core::launch::LaunchConfig::for_num_elems(n as u32);
     // let generated_ptx = format!("{}/generated_add_vectors.ptx", env!("CARGO_MANIFEST_DIR"));
     // lib_core::launch::launch_generated_ptx(

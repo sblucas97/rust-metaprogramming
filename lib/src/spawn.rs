@@ -9,6 +9,8 @@ use syn::{
 
 struct SpawnInput {
     kernel: Path,
+    grid_dim: Expr,
+    block_dim: Expr,
     args: Punctuated<Expr, Token![,]>,
 }
 
@@ -16,14 +18,18 @@ impl Parse for SpawnInput {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let kernel: Path = input.parse()?;
         let _comma: Token![,] = input.parse()?;
+        let grid_dim: Expr = input.parse()?;
+        let _comma: Token![,] = input.parse()?;
+        let block_dim: Expr = input.parse()?;
+        let _comma: Token![,] = input.parse()?;
         let args = Punctuated::<Expr, Token![,]>::parse_terminated(input)?;
 
-        Ok(SpawnInput { kernel, args })
+        Ok(SpawnInput { kernel, grid_dim, block_dim, args })
     }
 }
 
 pub fn spawn_impl(input: TokenStream) -> TokenStream {
-    let SpawnInput { kernel, args } = parse_macro_input!(input as SpawnInput);
+    let SpawnInput { kernel, grid_dim, block_dim, args } = parse_macro_input!(input as SpawnInput);
     let kernel_name = kernel.segments.last().unwrap().ident.to_string();
     let arg_pushes = args.into_iter().enumerate().map(|(i, arg)| {
         let ident = format_ident!("arg_{i}");
@@ -40,8 +46,8 @@ pub fn spawn_impl(input: TokenStream) -> TokenStream {
             let ptx_path = concat!(env!("CARGO_MANIFEST_DIR"), "/", #ptx_file);
 
             let cfg = lib_core::launch::LaunchConfig {
-                grid_dim: ((100 * 100 + 255) / 256, 1, 1),
-                block_dim: (256, 1, 1),
+                grid_dim: #grid_dim,
+                block_dim: #block_dim,
                 shared_mem_bytes: 0,
             };
 

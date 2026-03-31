@@ -293,7 +293,8 @@ impl Generator {
     pub fn gen_if(&mut self, expr_if: &syn::ExprIf) -> String {
         let cond = self.gen_expr(&expr_if.cond);
 
-        let mut result = format!("{}if {} {{\n", self.indent_str(), cond);
+        // C requires parentheses around the condition.
+        let mut result = format!("{}if ({}) {{\n", self.indent_str(), cond);
 
         self.indent += 1;
 
@@ -321,10 +322,23 @@ impl Generator {
             syn::Expr::Call(expr_call) => self.gen_expr_call(expr_call),
             syn::Expr::Return(expr_return) => self.gen_expr_return(expr_return),
             syn::Expr::ForLoop(expr_for_loop) => self.gen_expr_for_loop(expr_for_loop),
+            syn::Expr::Cast(expr_cast) => self.gen_expr_cast(expr_cast),
             _ => {
                 println!("{:#?}", expr);
                 String::new()
             }
+        }
+    }
+
+    fn gen_expr_cast(&mut self, expr_cast: &syn::ExprCast) -> String {
+        let inner = self.gen_expr(&expr_cast.expr);
+        match &*expr_cast.ty {
+            syn::Type::Path(type_path) => {
+                let ty = type_path.path.segments.last().unwrap().ident.to_string();
+                let c = self.map_type(&ty);
+                format!("(({})({}))", c, inner)
+            }
+            _ => panic!("Unsupported cast target type in kernel codegen"),
         }
     }
 
@@ -352,16 +366,12 @@ impl Generator {
             _ => panic!("Unsupported for loop iterator expression"),
         };
 
-        let body_stmts: String = expr_for_loop
-            .body
-            .stmts
-            .iter()
-            .map(|stmt| match stmt {
-                syn::Stmt::Expr(e, _) => format!("    {};\n", self.gen_expr(&e)),
-                syn::Stmt::Local(local) => self.gen_local(&local),
-                _ => String::new(),
-            })
-            .collect();
+        self.indent += 1;
+        let mut body_stmts = String::new();
+        for stmt in &expr_for_loop.body.stmts {
+            body_stmts.push_str(&self.gen_stmt(stmt));
+        }
+        self.indent -= 1;
 
         format!(
             "{indent_beginning}for (int {var} = {start}; {var} < {end}; {var} += {step}) {{\n{body}{indent_end}}}",

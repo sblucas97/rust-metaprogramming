@@ -3,7 +3,7 @@ use lib::{cuda_module};
 #[cuda_module(ROWS = 100, COLS = 100)]
 pub mod mm_kernel {
     use lib_core::{CudaVec};
-    use lib::{kernel, device_function};
+    use lib::{kernel};
 
     // #[device_function] 
     // pub fn normalize(val: f32) -> f32 {
