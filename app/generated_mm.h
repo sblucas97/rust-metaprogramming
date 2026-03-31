@@ -6,6 +6,6 @@
 #include<cuda_runtime.h>
 
 
-extern "C" __global__ void mm(const float *cc, const float *dd, float *ee);
+extern "C" __global__ void mm(const float *a, const float *b, float *c, uint64_t m, uint64_t n, uint64_t k);
 
 #endif

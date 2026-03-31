@@ -1,5 +1,5 @@
 pub mod julia_k;
-pub mod mult_k;
+pub mod mm;
 pub mod vector_sum_k;
 
 use std::time::Instant;
