@@ -1,5 +1,7 @@
 pub mod julia;
 pub mod mm;
+pub mod raytracer;
+pub mod ripple;
 pub mod vector_sum;
 
 use std::time::Instant;

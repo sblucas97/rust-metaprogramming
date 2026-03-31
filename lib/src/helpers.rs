@@ -259,6 +259,21 @@ impl Generator {
         }
     }
 
+    fn map_unop(&self, op: &syn::UnOp) -> &'static str {
+        match op {
+            syn::UnOp::Neg(_) => "-",
+            syn::UnOp::Not(_) => "!",
+            syn::UnOp::Deref(_) => "*",
+            _ => panic!("Unsupported unary operator in kernel codegen"),
+        }
+    }
+
+    fn gen_unary(&mut self, expr_unary: &syn::ExprUnary) -> String {
+        let op = self.map_unop(&expr_unary.op);
+        let operand = self.gen_expr(&expr_unary.expr);
+        format!("{}{}", op, operand)
+    }
+
     fn gen_binary(&mut self, expr_binary: &syn::ExprBinary) -> String {
         let left = self.gen_expr(&expr_binary.left);
         let right = self.gen_expr(&expr_binary.right);
@@ -323,6 +338,7 @@ impl Generator {
             syn::Expr::Return(expr_return) => self.gen_expr_return(expr_return),
             syn::Expr::ForLoop(expr_for_loop) => self.gen_expr_for_loop(expr_for_loop),
             syn::Expr::Cast(expr_cast) => self.gen_expr_cast(expr_cast),
+            syn::Expr::Unary(expr_unary) => self.gen_unary(expr_unary),
             _ => {
                 println!("{:#?}", expr);
                 String::new()
