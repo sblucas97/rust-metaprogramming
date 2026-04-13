@@ -47,6 +47,10 @@ int main(int argc, char **argv) {
             dim = v;
         }
     }
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+    cudaEventRecord(start, 0);
     uint64_t count = dim * dim * 4;
     size_t bytes = count * sizeof(float);
 
@@ -59,23 +63,17 @@ int main(int argc, char **argv) {
     dim3 grid(dim, dim, 1);
     dim3 block(1, 1, 1);
 
-    cudaEvent_t start, stop;
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
-
-    cudaEventRecord(start);
     julia_kernel<<<grid, block>>>(d_ptr, dim);
-    cudaEventRecord(stop);
-    cudaEventSynchronize(stop);
 
     float ms = 0.0f;
-    cudaEventElapsedTime(&ms, start, stop);
-    printf("[julia] elapsed: %.3f ms\n", ms);
-
-    cudaEventDestroy(start);
-    cudaEventDestroy(stop);
 
     cudaMemcpy(h_ptr, d_ptr, bytes, cudaMemcpyDeviceToHost);
+
+    cudaEventRecord(stop, 0);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&ms, start, stop);
+
+    printf("[julia] elapsed: %.3f ms\n", ms);
 
     cudaFree(d_ptr);
     free(h_ptr);
