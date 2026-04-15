@@ -1,10 +1,29 @@
 use crate:: {
-    ast::Expr,
+    ast::{Expr, Function, Stmt},
     context::Context,
     types::{Type, TypeError}
 };
 
-pub fn type_check(expr: &Expr, ctx: &mut Context) -> Result<Type, TypeError> {
+pub fn type_check(func: &Function, ctx: &mut Context) -> Result<Type, TypeError> {
+    let mut last_ty = Type::Unit;
+    for stmt in &func.body {
+        last_ty = type_check_stmt(stmt, ctx)?;
+    }
+    Ok(last_ty)
+}
+
+fn type_check_stmt(stmt: &Stmt, ctx: &mut Context) -> Result<Type, TypeError> {
+    match stmt {
+        Stmt::Let { name, value } => {
+            let value_type = type_check_expr(value, ctx)?;
+            ctx.insert(name.clone(), value_type);
+            Ok(Type::Unit)
+        }
+        Stmt::Expr(expr) => type_check_expr(expr, ctx),
+    }
+}
+
+fn type_check_expr(expr: &Expr, ctx: &mut Context) -> Result<Type, TypeError> {
     match expr {
         Expr::LiteralF32(_) => {
             return Ok(Type::F32)
@@ -21,8 +40,8 @@ pub fn type_check(expr: &Expr, ctx: &mut Context) -> Result<Type, TypeError> {
         }
 
         Expr::Add(left, right) => {
-            let ty1 = type_check(left, ctx)?;
-            let ty2 = type_check(right, ctx)?;
+            let ty1 = type_check_expr(left, ctx)?;
+            let ty2 = type_check_expr(right, ctx)?;
 
             match (&ty1, &ty2) {
                 (Type::F32, Type::F32) => {
@@ -40,7 +59,37 @@ pub fn type_check(expr: &Expr, ctx: &mut Context) -> Result<Type, TypeError> {
             }
         }
 
-        Expr::Assing { target, value} => {
+        /**
+         *  Γ ⊢ size_expr : U64
+            ---------------------------
+            Γ ⊢ CudaVec(size_expr) : CudaVec<F32>
+         */
+        Expr::CudaVec(size_expr) => {
+            let ty = type_check_expr(size_expr, ctx)?;
+
+            match ty {
+                Type::U64 => Ok(Type::CudaVec(Box::new(Type::F32))),
+                _ => Err(TypeError::InvalidCudaVecSize)
+            }
+        }
+
+        /**
+         *  Γ ⊢ target : CudaVec<T>
+            Γ ⊢ index  : U64
+            ---------------------------
+            Γ ⊢ target[index] : T
+         */
+        Expr::Index {target, index } => {
+            let ty_target = type_check_expr(target, ctx)?;
+            let ty_index = type_check_expr(index, ctx)?;
+
+            match(ty_target, ty_index) {
+                (Type::CudaVec(inner), Type::U64) => Ok(*inner),
+                _ => Err(TypeError::InvalidIndexing)
+            }
+        }
+
+        Expr::Assign { target, value} => {
             let var_name = match &**target {
                 Expr::Var(name) => name,
                 // only {x = ....} valid for now
@@ -48,7 +97,7 @@ pub fn type_check(expr: &Expr, ctx: &mut Context) -> Result<Type, TypeError> {
                 _ => return Err(TypeError::InvalidAssignmentTarget)
             };
 
-            let value_type = type_check(value, ctx)?;
+            let value_type = type_check_expr(value, ctx)?;
 
             match ctx.get(var_name) {
                 // If var already exists, check types are equal
@@ -76,22 +125,71 @@ pub fn type_check(expr: &Expr, ctx: &mut Context) -> Result<Type, TypeError> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        ast::Expr,
+        ast::{Expr, Function, Stmt},
         context::Context,
         type_checker::type_check,
         types::{Type, TypeError}
     };
-    
+
+    fn func(stmts: Vec<Stmt>) -> Function {
+        Function { name: "test".into(), body: stmts }
+    }
+
+    // CudaVec(10)
     #[test]
-    fn should_assing_new_variable() {
+    fn should_create_cudavec_from_size() {
         let mut ctx = Context::new();
 
-        let expr = Expr::Assing {
+        let f = func(vec![Stmt::Expr(Expr::CudaVec(Box::new(Expr::LiteralU64(10))))]);
+
+        let result = type_check(&f, &mut ctx);
+
+        assert_eq!(
+            result,
+            Ok(Type::CudaVec(Box::new(Type::F32)))
+        )
+    }
+
+    // CudaVec(10.0)
+    #[test]
+    fn should_fail_cudavec_with_non_integer_size() {
+        let mut ctx = Context::new();
+
+        let f = func(vec![Stmt::Expr(Expr::CudaVec(Box::new(Expr::LiteralF32(10.0))))]);
+
+        let result = type_check(&f, &mut ctx);
+
+        assert_eq!(
+            result,
+            Err(TypeError::InvalidCudaVecSize)
+        )
+    }
+
+    // let x = CudaVec(10);
+    #[test]
+    fn should_assign_cuda_vec() {
+        let mut ctx = Context::new();
+
+        let f = func(vec![Stmt::Let {
+            name: "x".into(),
+            value: Expr::CudaVec(Box::new(Expr::LiteralU64(10))),
+        }]);
+
+        let result = type_check(&f, &mut ctx);
+
+        assert_eq!(result, Ok(Type::Unit));
+    }
+
+    #[test]
+    fn should_assign_new_variable() {
+        let mut ctx = Context::new();
+
+        let f = func(vec![Stmt::Expr(Expr::Assign {
             target: Box::new(Expr::Var("x".into())),
             value: Box::new(Expr::LiteralF32(1.0)),
-        };
+        })]);
 
-        let result = type_check(&expr, &mut ctx);
+        let result = type_check(&f, &mut ctx);
 
         assert_eq!(result, Ok(Type::Unit));
     }
@@ -101,12 +199,12 @@ mod tests {
         let mut ctx = Context::new();
         ctx.insert("x", Type::F32);
 
-        let expr = Expr::Assing {
+        let f = func(vec![Stmt::Expr(Expr::Assign {
             target: Box::new(Expr::Var("x".into())),
             value: Box::new(Expr::LiteralU64(10)),
-        };
+        })]);
 
-        let result = type_check(&expr, &mut ctx);
+        let result = type_check(&f, &mut ctx);
 
         assert_eq!(
             result, 
@@ -118,9 +216,9 @@ mod tests {
     fn should_fail_unknown_variable() {
         let mut ctx = Context::new();
 
-        let expr = Expr::Var("y".into());
+        let f = func(vec![Stmt::Expr(Expr::Var("y".into()))]);
 
-        let result = type_check(&expr, &mut ctx);
+        let result = type_check(&f, &mut ctx);
 
         assert_eq!(result, Err(TypeError::UnknownVariable("y".into())));
     }
@@ -130,9 +228,9 @@ mod tests {
         let mut ctx = Context::new();
         ctx.insert("y", Type::F32);
 
-        let expr = Expr::Var("y".into());
+        let f = func(vec![Stmt::Expr(Expr::Var("y".into()))]);
 
-        let result = type_check(&expr, &mut ctx);
+        let result = type_check(&f, &mut ctx);
 
         assert_eq!(result, Ok(Type::F32));
     }
@@ -140,13 +238,13 @@ mod tests {
     #[test]
     fn should_add_two_f32() {
         let mut ctx = Context::new();
-        
-        let expr = Expr::Add(
+
+        let f = func(vec![Stmt::Expr(Expr::Add(
             Box::new(Expr::LiteralF32(1.0)),
             Box::new(Expr::LiteralF32(2.0)),
-        );
+        ))]);
 
-        let result = type_check(&expr, &mut ctx);
+        let result = type_check(&f, &mut ctx);
 
         assert_eq!(result, Ok(Type::F32));
     }
@@ -154,13 +252,13 @@ mod tests {
     #[test]
     fn should_add_two_u64() {
         let mut ctx = Context::new();
-        
-        let expr = Expr::Add(
+
+        let f = func(vec![Stmt::Expr(Expr::Add(
             Box::new(Expr::LiteralU64(1)),
             Box::new(Expr::LiteralU64(2)),
-        );
+        ))]);
 
-        let result = type_check(&expr, &mut ctx);
+        let result = type_check(&f, &mut ctx);
 
         assert_eq!(result, Ok(Type::U64));
     }
@@ -168,13 +266,13 @@ mod tests {
     #[test]
     fn should_fail_add_f32_with_u64() {
         let mut ctx = Context::new();
-        
-        let expr = Expr::Add(
+
+        let f = func(vec![Stmt::Expr(Expr::Add(
             Box::new(Expr::LiteralF32(1.0)),
             Box::new(Expr::LiteralU64(2)),
-        );
+        ))]);
 
-        let result = type_check(&expr, &mut ctx);
+        let result = type_check(&f, &mut ctx);
 
         assert_eq!(
             result, 
@@ -185,13 +283,13 @@ mod tests {
     #[test]
     fn should_fail_add_u64_with_f32() {
         let mut ctx = Context::new();
-        
-        let expr = Expr::Add(
+
+        let f = func(vec![Stmt::Expr(Expr::Add(
             Box::new(Expr::LiteralU64(1)),
             Box::new(Expr::LiteralF32(2.0)),
-        );
+        ))]);
 
-        let result = type_check(&expr, &mut ctx);
+        let result = type_check(&f, &mut ctx);
 
         assert_eq!(
             result, 

@@ -28,21 +28,21 @@ pub fn run(m: usize) -> CudaVec<f32> {
     c
 }
 
-#[cuda_module]
-pub mod mm_kernel {
-    use lib_core::CudaVec;
-    use lib::kernel;
+// #[cuda_module]
+// pub mod mm_kernel {
+//     use lib_core::CudaVec;
+//     use lib::kernel;
 
-    #[kernel]
-    pub fn mm(a: &CudaVec<f32>, b: &CudaVec<f32>, c: &mut CudaVec<f32>, m: u64, n: u64, k: u64) {
-        let row: u64 = blockIdx.y * blockDim.y + threadIdx.y;
-        let col: u64 = blockIdx.x * blockDim.x + threadIdx.x;
-        let mut sum: f32 = 0.0f32;
-        if col < k && row < m {
-            for i in (0u64, n).step_by(1u64) {
-                sum = sum + a[row * n + i] * b[i * k + col];
-            }
-            c[row * k + col] = sum;
-        }
-    }
-}
+//     #[kernel]
+//     pub fn mm(a: &CudaVec<f32>, b: &CudaVec<f32>, c: &mut CudaVec<f32>, m: u64, n: u64, k: u64) {
+//         let row: u64 = blockIdx.y * blockDim.y + threadIdx.y;
+//         let col: u64 = blockIdx.x * blockDim.x + threadIdx.x;
+//         let mut sum: f32 = 0.0f32;
+//         if col < k && row < m {
+//             for i in (0u64, n).step_by(1u64) {
+//                 sum = sum + a[row * n + i] * b[i * k + col];
+//             }
+//             c[row * k + col] = sum;
+//         }
+//     }
+// }

@@ -4,6 +4,7 @@ pub enum Type {
     U64,
     Bool,
     Unit,
+    CudaVec(Box<Type>)
 }
 
 #[derive(Debug, PartialEq)]
@@ -14,4 +15,6 @@ pub enum TypeError {
         found: String,
     },
     InvalidAssignmentTarget,
+    InvalidIndexing,
+    InvalidCudaVecSize,
 }

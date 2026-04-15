@@ -3,7 +3,7 @@ pub mod mm;
 pub mod raytracer;
 pub mod ripple;
 pub mod vector_sum;
-
+pub mod tc;
 use std::time::Instant;
 
 pub fn run_timed<T, F: FnOnce() -> T>(name: &str, f: F) -> T {

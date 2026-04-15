@@ -8,6 +8,12 @@ use syn::{
 
 use crate::helpers;
 
+use type_checker::{
+    type_checker::type_check,
+    lower::lower_fn,
+    context::Context
+};
+
 struct CudaModuleArgs {
     rows: Option<u64>,
     cols: Option<u64>,
@@ -74,6 +80,13 @@ pub fn cuda_module_impl(attr: TokenStream, item: TokenStream) -> TokenStream {
                  .unwrap_or(false)
             });
             if has_kernel {
+                let l_fn = lower_fn(func).unwrap();
+                println!("{:#?}", l_fn);
+                let mut ctx = Context::new();
+                match type_check(&l_fn, &mut ctx) {
+                    Ok(_) => println!("\n***********\nType check passed\n***********\n"),
+                    Err(e) => println!("{:?}", e)
+                }
                 helpers::gen_kernel(
                     &TokenStream::new(), 
                     func.clone(),

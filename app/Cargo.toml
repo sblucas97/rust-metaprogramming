@@ -8,6 +8,7 @@ edition = "2024"
 lib  = { path = "../lib" }
 lib_core = { path = "../lib_core" }
 guard-rt = { path = "../guard-rt" }
+type_checker = { path = "../type_checker" }
 libloading = "0.8.8"
 syn = "2.0.110"
 

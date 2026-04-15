@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 guard-rt = { path = "../guard-rt" }
 lib_core = { path = "../lib_core" }
+type_checker = { path = "../type_checker" }
 proc-macro2 = "1.0.95"
 quote = "1.0"
 syn = { version = "2.0", features = ["full"] }
