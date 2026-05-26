@@ -1,20 +1,94 @@
-use syn::{ItemFn, Stmt as SynStmt, Expr as SynExpr, BinOp, Pat};
-use quote::ToTokens;
+use syn::{BinOp, Expr as SynExpr, Field, ItemFn, Pat, Stmt as SynStmt};
+use quote::{ToTokens, quote};
 
 use crate::{
-    ast::{Expr, Function, Stmt}
+    types::{Type},
+    ast::{Expr, Function, Stmt, Param}
 };
 
 pub fn lower_fn(item: &ItemFn) -> Result<Function, String> {
     let name = item.sig.ident.to_string();
 
-    let mut body = Vec::new();
+    let mut params = Vec::new();
+    for arg in &item.sig.inputs {
+        params.push(lower_param(arg)?);
+    }
 
+    let mut body = Vec::new();
     for stmt in &item.block.stmts {
         body.push(lower_stmt(stmt)?);
     }
 
-    Ok(Function { name, body })
+    Ok(Function { name, params, body })
+}
+
+fn lower_param(arg: &syn::FnArg) -> Result<Param, String> {
+    match arg {
+        syn::FnArg::Typed(pat_type) => {
+            let name = match &*pat_type.pat {
+                syn::Pat::Ident(id) => id.ident.to_string(),
+                _ => return Err("unsupported param pattern".into()),
+            };
+
+            let ty = lower_type(&pat_type.ty)?;
+
+            Ok(Param { name, ty })
+        }
+
+        syn::FnArg::Receiver(_) => {
+            Err("self receiver not supported".into())
+        }
+    }
+}
+
+fn lower_type(ty: &syn::Type) -> Result<Type, String> {
+    match ty {
+        syn::Type::Reference(type_ref) => {
+            let mutable = type_ref.mutability.is_some();
+
+            Ok(Type::Ref {
+                mutable,
+                inner: Box::new(lower_type(&type_ref.elem)?),
+            })
+        }
+
+        syn::Type::Path(type_path) => {
+            let segment = type_path
+                .path
+                .segments
+                .last()
+                .ok_or("missing type segment")?;
+
+            match segment.ident.to_string().as_str() {
+                "f32" => Ok(Type::F32),
+                "u64" => Ok(Type::U64),
+                "u32" => Ok(Type::U32),
+                "CudaVec" => {
+                    match &segment.arguments {
+                        syn::PathArguments::AngleBracketed(args) => {
+                            let first = args.args.first()
+                                .ok_or("CudaVec missing generic")?;
+
+                            match first {
+                                syn::GenericArgument::Type(inner) => {
+                                    Ok(Type::CudaVec(
+                                        Box::new(lower_type(inner)?)
+                                    ))
+                                }
+                                _ => Err("unsupported CudaVec generic".into()),
+                            }
+                        }
+
+                        _ => Err("CudaVec requires generic".into()),
+                    }
+                }
+
+                other => Err(format!("unsupported type: {}", other)),
+            }
+        }
+
+        _ => Err("unsupported type".into()),
+    }
 }
 
 fn lower_stmt(stmt: &SynStmt) -> Result<Stmt, String> {
@@ -64,7 +138,16 @@ fn lower_expr(expr: &SynExpr) -> Result<Expr, String> {
                 Box::new(lower_expr(&b.left)?),
                 Box::new(lower_expr(&b.right)?),
             )),
-            _ => Err("unsupported binary op".into()),
+            BinOp::Mul(_) => Ok(Expr::Mul(
+                Box::new(lower_expr(&b.left)?),
+                Box::new(lower_expr(&b.right)?)
+            )), 
+            _ => 
+            {
+                let tokens = quote! { #b };
+                println!("\n#####\n#####\n{}\n######\n######\n", tokens.to_string());
+                Err("unsupported binary op".into())
+            },
         },
 
         SynExpr::Assign(a) => {
@@ -79,8 +162,22 @@ fn lower_expr(expr: &SynExpr) -> Result<Expr, String> {
             index: Box::new(lower_expr(&i.index)?),
             }
         ),
+        
+        SynExpr::Field(f) => {
+            let member = match &f.member {
+                syn::Member::Named(ident) => ident.to_string(),
+                _ => panic!("Unnamed member not supported."),
+            };
 
-        _ => Err(format!("unsupported expression: {}", expr.to_token_stream())),
+            Ok(Expr::Field { base: Box::new(lower_expr(&f.base)?), member: member })
+        }
+
+        e => {
+
+            let tokens = quote! { #e };
+            println!("\n#####\n#####\n{}\n######\n######\n", tokens.to_string());
+            Err(format!("unsupported expression: {} ", expr.to_token_stream()))
+        },
     }
 }
 

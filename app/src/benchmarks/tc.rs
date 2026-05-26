@@ -12,15 +12,15 @@ pub fn run() {
     );
 }
 
-#[cuda_module]
-pub mod tc_kernel {
-    use lib::kernel;
+// #[cuda_module]
+// pub mod tc_kernel {
+//     use lib::kernel;
 
-    #[kernel]
-    pub fn add_vectors() {
-        let x: u64 = 10;
-        let y: u64 = 12.0;
+//     #[kernel]
+//     pub fn add_vectors() {
+//         let x: u64 = 10;
+//         let y: u64 = 12.0;
 
-        let c: u64 = x + y;
-    }
-}
+//         let c: u64 = x + y;
+//     }
+// }

@@ -34,9 +34,38 @@ fn type_check_expr(expr: &Expr, ctx: &mut Context) -> Result<Type, TypeError> {
         }
 
         Expr::Var(name) => {
-            return ctx.get(name)
-                .cloned()
-                .ok_or(TypeError::UnknownVariable(name.clone()))
+            if let Some(ty) = ctx.get(name) {
+                return Ok(ty.clone());
+            }
+
+            if let Some(ty) = builtin_type(name) {
+                return Ok(ty);
+            }
+
+            Err(TypeError::UnknownVariable(name.clone()))
+        }
+
+        Expr::Mul(left, right) => {
+            let ty1 = type_check_expr(left, ctx)?;
+            let ty2 = type_check_expr(right, ctx)?;
+
+            match (&ty1, &ty2) {
+                (Type::F32, Type::F32) => {
+                    return Ok(Type::F32)
+                },
+                (Type::U64, Type::U64) => {
+                    return Ok(Type::U64)
+                },
+                (Type::U32, Type::U32) => {
+                    return Ok(Type::U32)
+                },
+                _ => {
+                    return Err(TypeError::TypeMismatch { 
+                        expected: format!("{:?} * {:?}", ty1.clone(), ty1.clone()), 
+                        found:  format!("{:?} * {:?}", ty1.clone(), ty2.clone())
+                    })
+                }
+            }
         }
 
         Expr::Add(left, right) => {
@@ -56,6 +85,16 @@ fn type_check_expr(expr: &Expr, ctx: &mut Context) -> Result<Type, TypeError> {
                         found:  format!("{:?} + {:?}", ty1.clone(), ty2.clone())
                     })
                 }
+            }
+        }
+
+        Expr::Field { base, member } => {
+            let tbase = type_check_expr(base, ctx)?;
+            match (tbase, member.as_ref()) {
+                (Type::Dim3, "x") => { return Ok(Type::U32) },
+                (Type::Dim3, "y") => { return Ok(Type::U32) },
+                (Type::Dim3, "z") => { return Ok(Type::U32) },
+                _ => { return Err(TypeError::InvalidFieldProperty) }
             }
         }
 
@@ -122,6 +161,17 @@ fn type_check_expr(expr: &Expr, ctx: &mut Context) -> Result<Type, TypeError> {
     }
 }
 
+fn builtin_type(name: &str) -> Option<Type> {
+    match name {
+        "blockIdx" => Some(Type::Dim3),
+        "threadIdx" => Some(Type::Dim3),
+        "blockDim" => Some(Type::Dim3),
+        "gridDim" => Some(Type::Dim3),
+        "warpSize" => Some(Type::U32),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
@@ -132,7 +182,7 @@ mod tests {
     };
 
     fn func(stmts: Vec<Stmt>) -> Function {
-        Function { name: "test".into(), body: stmts }
+        Function { name: "test".into(), params: vec![], body: stmts }
     }
 
     // CudaVec(10)

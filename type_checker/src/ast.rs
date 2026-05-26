@@ -1,3 +1,6 @@
+use crate::types::Type;
+
+
 #[derive(Debug, Clone)]
 pub enum Stmt {
     Let {
@@ -8,8 +11,15 @@ pub enum Stmt {
 }
 
 #[derive(Debug, Clone)]
+pub struct Param {
+    pub name: String,
+    pub ty: Type    
+}
+
+#[derive(Debug, Clone)]
 pub struct Function {
     pub name: String,
+    pub params: Vec<Param>,
     pub body: Vec<Stmt>,
 }
 
@@ -23,6 +33,7 @@ pub enum Expr {
     Var(String),
 
     Add(Box<Expr>, Box<Expr>),
+    Mul(Box<Expr>, Box<Expr>),
 
     Assign {
         target: Box<Expr>,
@@ -32,6 +43,10 @@ pub enum Expr {
     Index {
         target: Box<Expr>,
         index: Box<Expr>,
-    }
+    },
 
+    Field {
+        base: Box<Expr>,
+        member: String,
+    }
 }

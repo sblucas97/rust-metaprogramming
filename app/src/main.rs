@@ -8,11 +8,11 @@ fn main() {
         .unwrap_or(8000);
 
 
-    // benchmarks::vector_sum::run(size);
+    benchmarks::vector_sum::run(size);
     // benchmarks::mm::run(size);
     // benchmarks::julia::run(size);
     // benchmarks::raytracer::run(size);
     // benchmarks::ripple::run(size);
 
-    benchmarks::tc::run();
+    // benchmarks::tc::run();
 }
