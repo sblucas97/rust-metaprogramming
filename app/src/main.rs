@@ -15,4 +15,16 @@ fn main() {
     // benchmarks::ripple::run(size);
 
     // benchmarks::tc::run();
+
+    let mut x: i32 = 20;
+    let mut y: i32 = 15;
+    let r1: &mut i32 = &mut x;
+    let r2: &mut i32 = &mut y;
+
+    *r1 = 21;
+    *r2 = 16;
+
+    let a = *r1;
+    let b = *r2;
+
 }
