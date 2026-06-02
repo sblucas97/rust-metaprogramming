@@ -1,0 +1,18 @@
+[package]
+name = "examples"
+version = "0.1.0"
+edition = "2024"
+
+# The binary target can't be named `examples` (Cargo reserves that name), so name it
+# explicitly while keeping the package/dir semantically `examples`.
+[[bin]]
+name = "demo"
+path = "src/main.rs"
+
+# User-facing example/benchmark binaries. Depends on the three pieces that generated
+# kernel code refers to: the macros (DSL surface), the runtime (launch/CudaVec), and
+# the guard. Profile settings live in the workspace root Cargo.toml.
+[dependencies]
+macros = { path = "../macros" }
+runtime = { path = "../runtime" }
+guard = { path = "../guard" }

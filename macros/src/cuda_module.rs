@@ -8,7 +8,7 @@ use syn::{
 
 use crate::helpers;
 
-use type_checker::{
+use compiler::{
     type_checker::type_check,
     lower::lower_fn,
     context::Context

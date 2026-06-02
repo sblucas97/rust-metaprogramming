@@ -1,5 +1,5 @@
-use lib::{cuda_module, spawn};
-use lib_core::CudaVec;
+use macros::{cuda_module, spawn};
+use runtime::CudaVec;
 
 pub fn run(m: usize) -> CudaVec<f32> {
     let n = m;
@@ -30,8 +30,8 @@ pub fn run(m: usize) -> CudaVec<f32> {
 
 // #[cuda_module]
 // pub mod mm_kernel {
-//     use lib_core::CudaVec;
-//     use lib::kernel;
+//     use runtime::CudaVec;
+//     use macros::kernel;
 
 //     #[kernel]
 //     pub fn mm(a: &CudaVec<f32>, b: &CudaVec<f32>, c: &mut CudaVec<f32>, m: u64, n: u64, k: u64) {

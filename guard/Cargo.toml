@@ -1,0 +1,9 @@
+[package]
+name = "guard"
+version = "0.1.0"
+edition = "2024"
+
+# Tiny runtime guard (CONTEXT_ACTIVE) named by code generated for #[device_function].
+# Kept as its own crate because a proc-macro crate cannot export runtime items, and
+# the generated code must be able to name these symbols in the user's crate.
+[dependencies]

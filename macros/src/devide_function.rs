@@ -24,7 +24,7 @@ pub fn device_function_impl(_attr: TokenStream, item: TokenStream) -> TokenStrea
     let expanded = quote! {
         #(#attrs)*
         #vis #sig {
-            guard_rt::CONTEXT_ACTIVE.with(|flag: &std::cell::Cell<bool>| {
+            guard::CONTEXT_ACTIVE.with(|flag: &std::cell::Cell<bool>| {
                 if !flag.get() {
                     panic!(
                         "`{}` can only be called inside a #[kernel] function",

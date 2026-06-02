@@ -1,4 +1,4 @@
-use lib::{cuda_module, spawn};
+use macros::{cuda_module, spawn};
 
 
 pub fn run() {
@@ -14,7 +14,7 @@ pub fn run() {
 
 // #[cuda_module]
 // pub mod tc_kernel {
-//     use lib::kernel;
+//     use macros::kernel;
 
 //     #[kernel]
 //     pub fn add_vectors() {

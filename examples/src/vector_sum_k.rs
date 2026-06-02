@@ -1,7 +1,8 @@
-use lib::{cuda_module, spawn};
-use lib_core::CudaVec;
+use macros::{cuda_module, spawn};
+use runtime::CudaVec;
+use std::time::Instant;
 
-pub fn run(n: usize) -> CudaVec<f32> {
+pub fn run(n: usize) {
     let a: CudaVec<f32> = CudaVec::new((1..=n).map(|i| i as f32).collect());
     let b: CudaVec<f32> = CudaVec::new((1..=n).map(|i| i as f32).collect());
     let mut result: CudaVec<f32> = CudaVec::new(vec![0.0f32; n]);
@@ -9,6 +10,7 @@ pub fn run(n: usize) -> CudaVec<f32> {
     let threads_per_block: u32 = 128;
     let num_blocks: u32 = (n as u32 + threads_per_block - 1) / threads_per_block;
 
+    let gpu_start = Instant::now();
     spawn!(
         vector_sum_kernel::add_vectors,
         (num_blocks, 1, 1),
@@ -19,21 +21,23 @@ pub fn run(n: usize) -> CudaVec<f32> {
         n as u64
     );
     result.copy_from_device();
-    result
+    println!("time gpu: {}ms", gpu_start.elapsed().as_millis());
+
+    let cpu_start = Instant::now();
 }
 
 #[cuda_module]
 pub mod vector_sum_kernel {
-    use lib_core::CudaVec;
-    use lib::kernel;
+    use runtime::CudaVec;
+    use macros::kernel;
 
     #[kernel]
     pub fn add_vectors(a: &CudaVec<f32>, b: &CudaVec<f32>, result: &mut CudaVec<f32>, n: u64) {
         let idx: u64 = blockIdx.x * blockDim.x + threadIdx.x;
-        // let stride: u64 = blockDim.x * gridDim.x;
+        let stride: u64 = blockDim.x * gridDim.x;
 
-        // for i in (idx, n).step_by(stride) {
-        result[idx] = a[idx] + b[idx];
-        // }
+        for i in (idx, n).step_by(stride) {
+            result[i] = a[i] + b[i];
+        }
     }
 }

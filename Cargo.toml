@@ -1,0 +1,17 @@
+[workspace]
+resolver = "3"
+members = ["compiler", "macros", "runtime", "guard", "examples"]
+
+# Shared dependency versions — each crate opts in with `{ workspace = true }`.
+# Keeping versions here prevents the drift we had before (libloading 0.7 vs 0.8,
+# three different syn versions, etc.) and gives the workspace a single Cargo.lock.
+[workspace.dependencies]
+# extra-traits = Debug impls on syn nodes (helpers.rs debug-prints syn::Expr/Lit).
+# Previously this feature leaked in transitively via darling; now declared explicitly.
+syn = { version = "2.0", features = ["full", "extra-traits"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+cudarc = { version = "0.19.3", features = ["cuda-version-from-build-system"] }
+
+[profile.release]
+debug = true

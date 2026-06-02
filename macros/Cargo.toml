@@ -1,0 +1,18 @@
+[package]
+name = "macros"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+proc-macro = true
+
+# The proc-macro shell: #[kernel], #[cuda_module], #[device_function], spawn!.
+# It only needs the syn/quote toolchain plus the compiler frontend (it calls the
+# type checker at expansion time). The runtime/guard crates are referenced *inside*
+# generated tokens, which resolve in the user's crate (examples) — so they are NOT
+# dependencies of this crate.
+[dependencies]
+compiler = { path = "../compiler" }
+syn = { workspace = true }
+quote = { workspace = true }
+proc-macro2 = { workspace = true }

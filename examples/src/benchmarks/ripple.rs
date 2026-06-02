@@ -1,5 +1,5 @@
-use lib::{cuda_module, spawn};
-use lib_core::CudaVec;
+use macros::{cuda_module, spawn};
+use runtime::CudaVec;
 
 pub fn run(dim: usize) -> CudaVec<f32> {
     let mut ptr: CudaVec<f32> = CudaVec::new(vec![0.0f32; dim * dim * 4]);
@@ -18,8 +18,8 @@ pub fn run(dim: usize) -> CudaVec<f32> {
 
 // #[cuda_module]
 // pub mod ripple_kernel {
-//     use lib_core::CudaVec;
-//     use lib::kernel;
+//     use runtime::CudaVec;
+//     use macros::kernel;
 
 //     #[kernel]
 //     pub fn ripple_kernel(ptr: &mut CudaVec<f32>, dim: u64, ticks: f32) {

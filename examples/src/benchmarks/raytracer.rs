@@ -1,5 +1,5 @@
-use lib::{cuda_module, spawn};
-use lib_core::CudaVec;
+use macros::{cuda_module, spawn};
+use runtime::CudaVec;
 
 /// Simple LCG matching the seed/range from the Elixir reference:
 /// rnd(x) = x * randint(1, 32767) / 32767
@@ -54,8 +54,8 @@ pub fn run(dim: usize) -> CudaVec<f32> {
 
 // #[cuda_module]
 // pub mod raytracer_kernel {
-//     use lib_core::CudaVec;
-//     use lib::kernel;
+//     use runtime::CudaVec;
+//     use macros::kernel;
 
 //     #[kernel]
 //     pub fn raytracing(spheres: &CudaVec<f32>, image: &mut CudaVec<f32>, width: u64, height: u64) {

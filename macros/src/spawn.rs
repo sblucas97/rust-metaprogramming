@@ -34,7 +34,7 @@ pub fn spawn_impl(input: TokenStream) -> TokenStream {
     let arg_pushes = args.into_iter().enumerate().map(|(i, arg)| {
         let ident = format_ident!("arg_{i}");
         quote! {
-            let #ident = lib_core::launch::kernel_arg(&(#arg));
+            let #ident = runtime::launch::kernel_arg(&(#arg));
             builder.arg(&#ident);
         }
     });
@@ -45,14 +45,14 @@ pub fn spawn_impl(input: TokenStream) -> TokenStream {
         {
             let ptx_path = concat!(env!("CARGO_MANIFEST_DIR"), "/", #ptx_file);
 
-            let cfg = lib_core::launch::LaunchConfig {
+            let cfg = runtime::launch::LaunchConfig {
                 grid_dim: #grid_dim,
                 block_dim: #block_dim,
                 shared_mem_bytes: 0,
             };
 
-            lib_core::launch::launch_generated_ptx(ptx_path, cfg, |stream, func, cfg| {
-                use lib_core::launch::PushKernelArg;
+            runtime::launch::launch_generated_ptx(ptx_path, cfg, |stream, func, cfg| {
+                use runtime::launch::PushKernelArg;
 
                 let mut builder = stream.launch_builder(func);
 

@@ -1,0 +1,11 @@
+[package]
+name = "compiler"
+version = "0.1.0"
+edition = "2024"
+
+# Frontend of the DSL: lower (syn -> IR), type-check, (data-race check), codegen.
+# Plain library crate so the type system and race checker can be unit-tested
+# without proc-macro machinery.
+[dependencies]
+syn = { workspace = true }
+quote = { workspace = true }

@@ -1,6 +1,6 @@
-use lib::cuda_module;
-use lib::spawn;
-use lib_core::CudaVec;
+use macros::cuda_module;
+use macros::spawn;
+use runtime::CudaVec;
 
 use std::time::Instant;
 
@@ -23,8 +23,8 @@ pub fn run(dim: usize) -> CudaVec<f32> {
 
 // #[cuda_module]
 // pub mod julia_kernel {
-//     use lib_core::CudaVec;
-//     use lib::kernel;
+//     use runtime::CudaVec;
+//     use macros::kernel;
 
 //     #[kernel]
 //     pub fn julia_kernel(ptr: &mut CudaVec<f32>, dim: u64) {

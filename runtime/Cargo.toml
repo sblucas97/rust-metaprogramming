@@ -1,0 +1,19 @@
+[package]
+name = "runtime"
+version = "0.1.0"
+edition = "2024"
+build = "build.rs"
+
+# Runtime support linked into the user's binary: kernel launch, the CudaVec device
+# buffer, and the C/CUDA FFI. The native static archive built by build.rs is still
+# named `lib_core` (see build.rs / src/ffi.rs) — that is a C library name and is
+# independent of this Rust crate's name.
+[lib]
+name = "runtime"
+crate-type = ["rlib"]
+
+[build-dependencies]
+cc = "1.0"
+
+[dependencies]
+cudarc = { workspace = true }
