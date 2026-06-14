@@ -145,6 +145,61 @@ Why this *is* NLL: the loan `uniq pt.0` is reachable only through `'r`, and `'r`
 
 ---
 
+## Regions vs scopes vs provenance — and what real rustc does
+
+A recurring confusion: *"Oxide uses regions, not scopes — but does the **real** Rust borrow checker use regions or scopes for lifetimes?"* Short answer: **today's rustc uses regions, not scopes. It used scopes until 2018, then switched.** Three different ideas are getting conflated:
+
+| Idea | Nature | "It is…" |
+| --- | --- | --- |
+| **Scope** | *syntactic* | a lexical block `{ … }`; tied to nesting; knows nothing about control or data flow |
+| **Lifetime** | *surface syntax* | the name you write (`'a`). The compiler internally calls it a **region** — same object, two sides |
+| **Region / provenance** | *semantic* | "over what part of the program is this reference valid / which borrows does it carry?" — **not** a scope; flow-sensitive, can have holes |
+
+So "regions or scopes?" really means "is a lifetime a syntactic block, or a solved-for semantic thing?" — and Rust's answer changed over time.
+
+### The history (the key part)
+
+- **Pre-2018 — lexical lifetimes (AST borrow checker): scope-based.** A borrow lasted until the **end of the enclosing scope**, mechanically. Regions *were* essentially scopes.
+- **2018+ — NLL (Non-Lexical Lifetimes, MIR borrow checker): region-based.** The checker moved onto MIR (a control-flow graph). A region became **a set of program points in the CFG** where the reference must be live — computed from actual *usage*, not block structure. This is the current production borrow checker.
+
+The canonical example that proves the switch:
+
+```rust
+let mut x = 5;
+let r = &x;          // borrow of x begins
+println!("{}", r);   // ...last use of r
+x += 1;              // mutate x
+```
+
+- **Scope-based (old):** `r`'s borrow lives to the end of the block, so `x += 1` overlaps it → **error**.
+- **Region-based (NLL, today):** `r`'s region is `{ points from the borrow to the println }` — it has a *hole* after the last use, so `x += 1` is outside it → **compiles fine**.
+
+That "the borrow ends at last use, not end of scope" behavior is the whole point of NLL, and it's only expressible if lifetimes are **regions, not scopes** — the same payoff this doc derives from region GC above.
+
+### Two region representations (this is the subtlety)
+
+There are actually **two** ways to represent a region, and Oxide does *not* use the one production rustc uses:
+
+| Representation | "A region is…" | Used by |
+| --- | --- | --- |
+| Scope | a lexical block | old Rust (pre-2018) |
+| **Region-as-points** | a set of CFG locations (liveness) | **NLL — current rustc** |
+| **Region-as-loans / provenance** | the set of **[[loan-oxide\|loans]]** that flow into the reference | **Oxide**, and **Polonius** (next-gen rustc) |
+
+Oxide's "region = set of loans" — the entire premise of this doc — is **not** how current production rustc (NLL) represents regions internally; NLL uses point-sets. Oxide's formulation matches **Polonius**, the in-development reformulation where an "origin" is a set of loans and the checker reasons about *loan liveness* instead of *region liveness*. Polonius is more precise and is the direction rustc is heading — so Oxide is aligned with Rust's **future**, not its current internals.
+
+### Where this project sits
+
+Our own `compiler/src/borrowck/region.rs` design (`PrvMap = HashMap<Provenance, HashSet<Loan>>`, see `ARCHITECTURE_PROPOSAL.md` §7.3) is the **loan-set / Oxide / Polonius** formulation, not the NLL point-set one. That's a deliberate, good choice: it's the more modern model and it sidesteps needing a full MIR-style CFG, which we don't have. A conflict becomes "is a loan in some live region incompatible with this access?" — exactly `conflicts(a, b)` lifted to sets.
+
+### One-line answers
+
+- *Does real Rust use regions or scopes for lifetimes?* → **Regions.** (Scopes only in the pre-2018 lexical checker.)
+- *Are Oxide regions different from scopes?* → **Yes, fundamentally** — and so are real Rust's NLL regions. Neither is scope-based.
+- *Is Oxide's region the same as rustc's region?* → Same **idea**, different **representation**: rustc-NLL = set of CFG points; Oxide/Polonius = set of loans. This project follows the Oxide/Polonius one.
+
+---
+
 ## The full pipeline, end to end
 
 All three docs are one machine:

@@ -5,14 +5,7 @@ use syn::{
     {parse::Parse, parse::ParseStream, parse_macro_input},
     Ident, LitInt, Token
 };
-
-use crate::helpers;
-
-use compiler::{
-    type_checker::type_check,
-    lower::lower_fn,
-    context::Context
-};
+use compiler;
 
 struct CudaModuleArgs {
     rows: Option<u64>,
@@ -80,20 +73,17 @@ pub fn cuda_module_impl(attr: TokenStream, item: TokenStream) -> TokenStream {
                  .unwrap_or(false)
             });
             if has_kernel {
-                let l_fn = lower_fn(func).unwrap();
-                println!("{:#?}", l_fn);
-                let mut ctx = Context::new();
-                match type_check(&l_fn, &mut ctx) {
-                    Ok(_) => println!("\n***********\nType check passed\n***********\n"),
-                    Err(e) => println!("{:?}", e)
+                
+                match compiler::pipeline::compile_kernel(func, device_fns.clone(), args.rows, args.cols) {
+                    Err(_diagnostics) => {
+
+                    }
+                    Ok(compiled) => {
+                        let name = &compiled.name;
+                        std::fs::write(format!("generated_{name}.cu"), &compiled.cuda);
+                    }
                 }
-                helpers::gen_kernel(
-                    &TokenStream::new(), 
-                    func.clone(),
-                    device_fns.clone(),
-                    args.rows,
-                    args.cols,
-                );
+                
 
                 let name = func.sig.ident.to_string();
                 let ptx_name = format!("generated_{name}.ptx");

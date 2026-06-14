@@ -6,7 +6,6 @@ mod spawn;
 mod cuda_module;
 mod kernel;
 mod devide_function;
-mod helpers;
 
 #[proc_macro_attribute]
 pub fn cuda_module(_attr: TokenStream, item: TokenStream) -> TokenStream {
