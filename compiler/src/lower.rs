@@ -1,4 +1,4 @@
-use syn::{BinOp, Expr as SynExpr, Field, ItemFn, Pat, Stmt as SynStmt};
+use syn::{BinOp, Expr as SynExpr, ItemFn, Pat, Stmt as SynStmt};
 use quote::{ToTokens, quote};
 
 use crate::{

@@ -61,11 +61,6 @@ impl Generator {
         }
     }
 
-    pub fn gen_output_file(&self, name: &str, extension: &str) {
-        std::fs::write(format!("{}.{}", name, extension), self.file_content.clone())
-            .expect("Failed to write kernel file");
-    }
-
     pub fn gen_include_headers(&mut self) {
         self.file_content.push_str("#include<stdio.h>\n");
         self.file_content.push_str("#include<cstdint>\n");

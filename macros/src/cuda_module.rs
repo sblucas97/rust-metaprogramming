@@ -80,7 +80,7 @@ pub fn cuda_module_impl(attr: TokenStream, item: TokenStream) -> TokenStream {
                     }
                     Ok(compiled) => {
                         let name = &compiled.name;
-                        std::fs::write(format!("generated_{name}.cu"), &compiled.cuda);
+                        std::fs::write(format!("generated_{name}.cu"), &compiled.cuda).expect("Failed to write kernel file");
                     }
                 }
                 

@@ -98,11 +98,9 @@ fn type_check_expr(expr: &Expr, ctx: &mut Context) -> Result<Type, TypeError> {
             }
         }
 
-        /**
-         *  Γ ⊢ size_expr : U64
-            ---------------------------
-            Γ ⊢ CudaVec(size_expr) : CudaVec<F32>
-         */
+        // Γ ⊢ size_expr : U64
+        // ---------------------------
+        // Γ ⊢ CudaVec(size_expr) : CudaVec<F32>        
         Expr::CudaVec(size_expr) => {
             let ty = type_check_expr(size_expr, ctx)?;
 
@@ -112,12 +110,10 @@ fn type_check_expr(expr: &Expr, ctx: &mut Context) -> Result<Type, TypeError> {
             }
         }
 
-        /**
-         *  Γ ⊢ target : CudaVec<T>
-            Γ ⊢ index  : U64
-            ---------------------------
-            Γ ⊢ target[index] : T
-         */
+        // Γ ⊢ target : CudaVec<T>
+        // Γ ⊢ index  : U64
+        // ---------------------------
+        // Γ ⊢ target[index] : T        
         Expr::Index {target, index } => {
             let ty_target = type_check_expr(target, ctx)?;
             let ty_index = type_check_expr(index, ctx)?;
