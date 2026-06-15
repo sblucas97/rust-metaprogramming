@@ -75,8 +75,10 @@ pub fn cuda_module_impl(attr: TokenStream, item: TokenStream) -> TokenStream {
             if has_kernel {
                 
                 match compiler::pipeline::compile_kernel(func, device_fns.clone(), args.rows, args.cols) {
-                    Err(_diagnostics) => {
-
+                    Err(diagnostics) => {
+                        for d in &diagnostics {
+                            eprintln!("[{:?}] {}", d.kind, d.msg);
+                        }
                     }
                     Ok(compiled) => {
                         let name = &compiled.name;

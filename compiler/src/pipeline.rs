@@ -16,6 +16,7 @@ pub fn compile_kernel(
     cols: Option<u64>
 ) -> Result<CompiledKernel, Vec<Diagnostic>> {
     let lower = lower::lower_fn(item).unwrap();
+    dbg_stage("1 lower", &lower);
 
     let mut ctx = Context::new();
     // lower should have in the output the param name and types
@@ -27,9 +28,9 @@ pub fn compile_kernel(
         kind: DiagKind::Type,
     }])?;
 
-
     let fn_name = item.sig.ident.to_string();
     let cuda = codegen::gen_kernel(item.clone(), fn_name.clone(), device_fns, rows, cols);
+    dbg_stage("3 codegen", &cuda);
     Ok(CompiledKernel { cuda, name: fn_name })
 }
 
@@ -43,8 +44,11 @@ fn type_error_message(e: TypeError) -> String {
         TypeError::InvalidIndexing => "invalid indexing: expected CudaVec<T>[u64]".into(),
         TypeError::InvalidCudaVecSize => "CudaVec size must be u64".into(),
         TypeError::InvalidFieldProperty => "invalid field access".into(),
+    }
+}
 
-
-
+fn dbg_stage(name: &str, val: &impl std::fmt::Debug) {
+    if std::env::var("DEBUG_ACTIVE").is_ok() {
+        eprintln!("\n=== [{name}] ===\n{val:#?}");
     }
 }

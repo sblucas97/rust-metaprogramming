@@ -23,8 +23,17 @@ pub struct Function {
     pub body: Vec<Stmt>,
 }
 
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct NodeId(pub u32);
+
 #[derive(Debug, Clone)]
-pub enum Expr {
+pub struct Expr {
+    pub id: NodeId,
+    pub kind: ExprKind
+}
+#[derive(Debug, Clone)]
+pub enum ExprKind {
     LiteralF32(f32),
     LiteralU64(u64),
 
