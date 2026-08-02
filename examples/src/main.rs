@@ -2,18 +2,56 @@ mod benchmarks;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let size: usize = args
-        .get(1)
+
+    // `demo`                    -> run everything, default sizes
+    // `demo 4096`               -> run everything, size 4096 (clamped per-bench as before)
+    // `demo nbodies`            -> run only nbodies, default size
+    // `demo nbodies 4096`       -> run only nbodies, size 4096
+    let (bench, size_arg) = match args.get(1).map(String::as_str) {
+        Some(name) if name.parse::<usize>().is_err() => (Some(name), args.get(2)),
+        _ => (None, args.get(1)),
+    };
+
+    let size: usize = size_arg
         .and_then(|s| s.parse().ok())
         .unwrap_or(8000);
 
-
-    benchmarks::vector_sum::run(size);
-    // benchmarks::mm::run(size);
-    // benchmarks::julia::run(size);
-    // benchmarks::raytracer::run(size);
-    // benchmarks::ripple::run(size);
-
-    // benchmarks::tc::run();
-
+    match bench {
+        Some("vector_sum") => {
+            benchmarks::vector_sum::run(size);
+        }
+        Some("mm") => {
+            benchmarks::mm::run(size);
+        }
+        Some("julia") => {
+            benchmarks::julia::run(size);
+        }
+        Some("raytracer") => {
+            benchmarks::raytracer::run(size);
+        }
+        Some("ripple") => {
+            benchmarks::ripple::run(size);
+        }
+        Some("nearest_neighbor") => {
+            benchmarks::nearest_neighbor::run(size);
+        }
+        Some("nbodies") => {
+            benchmarks::nbodies::run(size);
+        }
+        Some(other) => {
+            eprintln!(
+                "unknown benchmark `{other}` (expected one of: vector_sum, mm, julia, raytracer, ripple, nearest_neighbor, nbodies)"
+            );
+            std::process::exit(1);
+        }
+        None => {
+            benchmarks::vector_sum::run(size);
+            benchmarks::mm::run(size.min(1024));
+            benchmarks::julia::run(size.min(1024));
+            benchmarks::raytracer::run(size.min(1024));
+            benchmarks::ripple::run(size.min(1024));
+            benchmarks::nearest_neighbor::run(size);
+            benchmarks::nbodies::run(size.min(4096));
+        }
+    }
 }

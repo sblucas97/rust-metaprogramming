@@ -13,6 +13,15 @@ pub enum Type {
     }
 }
 
+impl Type {
+    pub fn is_numeric(&self) -> bool {
+        matches!(self, Type::F32 | Type::U32 | Type::U64)
+    }
+
+    pub fn is_integer(&self) -> bool {
+        matches!(self, Type::U32 | Type::U64)
+    }
+}
 
 #[derive(Debug, PartialEq)]
 pub enum TypeError {
@@ -24,5 +33,22 @@ pub enum TypeError {
     InvalidAssignmentTarget,
     InvalidIndexing,
     InvalidCudaVecSize,
-    InvalidFieldProperty
+    InvalidFieldProperty,
+    NotMutable(String),
+    UnknownFunction(String),
+    ArityMismatch {
+        func: String,
+        expected: usize,
+        found: usize,
+    },
+    ConditionNotBool(String),
+    InvalidCast {
+        from: String,
+        to: String,
+    },
+    LetTypeMismatch {
+        name: String,
+        expected: String,
+        found: String,
+    },
 }

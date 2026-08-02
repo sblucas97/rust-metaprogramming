@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use macros::{cuda_module, spawn};
 use runtime::CudaVec;
 
@@ -39,6 +41,7 @@ pub fn run(dim: usize) -> CudaVec<f32> {
     let grid_x = (dim as u32 + block - 1) / block;
     let grid_y = (dim as u32 + block - 1) / block;
 
+    let start = Instant::now();
     spawn!(
         raytracer_kernel::raytracing,
         (grid_x, grid_y, 1),
@@ -48,6 +51,9 @@ pub fn run(dim: usize) -> CudaVec<f32> {
         dim as u64,
         dim as u64
     );
+    let elapsed = start.elapsed();
+    println!("[raytracer] elapsed: {:.3} ms", elapsed.as_secs_f64() * 1000.0);
+
     image.copy_from_device();
     image
 }

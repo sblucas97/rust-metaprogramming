@@ -15,18 +15,20 @@ pub fn compile_kernel(
     rows: Option<u64>,
     cols: Option<u64>
 ) -> Result<CompiledKernel, Vec<Diagnostic>> {
-    let lower = lower::lower_fn(item).unwrap();
+    let lower = lower::lower_fn(item).map_err(|msg| vec![Diagnostic {
+        msg,
+        span: None,
+        kind: DiagKind::Parse,
+    }])?;
     dbg_stage("1 lower", &lower);
 
     let mut ctx = Context::new();
-    // lower should have in the output the param name and types
-    // having this it should traverse adding the items to the ctx and them check the body
-    // right now its checking just the body
     type_checker::type_check(&lower, &mut ctx).map_err(|e| vec![Diagnostic {
         msg: type_error_message(e),
         span: None,
         kind: DiagKind::Type,
     }])?;
+    dbg_stage("2 typecheck ctx", &ctx);
 
     let fn_name = item.sig.ident.to_string();
     let cuda = codegen::gen_kernel(item.clone(), fn_name.clone(), device_fns, rows, cols);
@@ -41,9 +43,25 @@ fn type_error_message(e: TypeError) -> String {
             format!("type mismatch: expected `{expected}`, found `{found}`")
         },
         TypeError::InvalidAssignmentTarget => "invalid assignment target".into(),
-        TypeError::InvalidIndexing => "invalid indexing: expected CudaVec<T>[u64]".into(),
+        TypeError::InvalidIndexing => "invalid indexing: expected CudaVec<T>[u32|u64]".into(),
         TypeError::InvalidCudaVecSize => "CudaVec size must be u64".into(),
         TypeError::InvalidFieldProperty => "invalid field access".into(),
+        TypeError::NotMutable(name) => {
+            format!("cannot assign: `{name}` is not mutable")
+        },
+        TypeError::UnknownFunction(name) => format!("unknown function `{name}`"),
+        TypeError::ArityMismatch { func, expected, found } => {
+            format!("`{func}` expects {expected} argument(s), found {found}")
+        },
+        TypeError::ConditionNotBool(found) => {
+            format!("if condition must be `bool`, found `{found}`")
+        },
+        TypeError::InvalidCast { from, to } => {
+            format!("invalid cast from `{from}` to `{to}`")
+        },
+        TypeError::LetTypeMismatch { name, expected, found } => {
+            format!("let `{name}`: declared type `{expected}` does not match value type `{found}`")
+        },
     }
 }
 

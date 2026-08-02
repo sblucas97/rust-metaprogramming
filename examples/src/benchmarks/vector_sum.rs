@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use macros::{cuda_module, spawn};
 use runtime::CudaVec;
 
@@ -9,6 +11,7 @@ pub fn run(n: usize) -> CudaVec<f32> {
     let threads_per_block: u32 = 128;
     let num_blocks: u32 = (n as u32 + threads_per_block - 1) / threads_per_block;
 
+    let start = Instant::now();
     spawn!(
         vector_sum_kernel::add_vectors,
         (num_blocks, 1, 1),
@@ -18,6 +21,9 @@ pub fn run(n: usize) -> CudaVec<f32> {
         result,
         n as u64
     );
+    let elapsed = start.elapsed();
+    println!("[vector_sum] elapsed: {:.3} ms", elapsed.as_secs_f64() * 1000.0);
+
     result.copy_from_device();
     result
 }

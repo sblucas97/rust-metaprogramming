@@ -6,8 +6,9 @@ use std::time::Instant;
 
 pub fn run(dim: usize) -> CudaVec<f32> {
     let data: Vec<f32> = vec![0.0f32; dim * dim * 4];
-    let start = Instant::now();    
     let mut ptr: CudaVec<f32> = CudaVec::new(data);
+
+    let start = Instant::now();
     spawn!(
         julia_kernel::julia_kernel,
         (dim as u32, dim as u32, 1),
@@ -15,9 +16,10 @@ pub fn run(dim: usize) -> CudaVec<f32> {
         ptr,
         dim as u64
     );
+    let elapsed = start.elapsed();
+    println!("[julia] elapsed: {:.3} ms", elapsed.as_secs_f64() * 1000.0);
+
     ptr.copy_from_device();
-    let end = Instant::now();
-    println!("julia kernel time: {}ms", end.duration_since(start).as_millis());
     ptr
 }
 

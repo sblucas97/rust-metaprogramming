@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use macros::{cuda_module, spawn};
 use runtime::CudaVec;
 
@@ -13,6 +15,7 @@ pub fn run(m: usize) -> CudaVec<f32> {
     let grid_rows: u32 = (m as u32 + block_size - 1) / block_size;
     let grid_cols: u32 = (k as u32 + block_size - 1) / block_size;
 
+    let start = Instant::now();
     spawn!(
         mm_kernel::mm,
         (grid_cols, grid_rows, 1),
@@ -24,6 +27,9 @@ pub fn run(m: usize) -> CudaVec<f32> {
         n as u64,
         k as u64
     );
+    let elapsed = start.elapsed();
+    println!("[mm] elapsed: {:.3} ms", elapsed.as_secs_f64() * 1000.0);
+
     c.copy_from_device();
     c
 }

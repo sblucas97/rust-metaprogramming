@@ -2,3 +2,5 @@
 .cursor/
 perf.data
 **/generated_**
+examples/bin/
+examples/results/*.csv

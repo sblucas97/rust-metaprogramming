@@ -65,6 +65,7 @@ pub fn cuda_module_impl(attr: TokenStream, item: TokenStream) -> TokenStream {
         .collect();
 
     // collect kernel functions and generate .cu files now, while we have device_fns
+    let mut compile_errors: Vec<proc_macro2::TokenStream> = Vec::new();
     for item in &items {
         if let syn::Item::Fn(func) = item {
             let has_kernel = func.attrs.iter().any(|a| {
@@ -73,19 +74,23 @@ pub fn cuda_module_impl(attr: TokenStream, item: TokenStream) -> TokenStream {
                  .unwrap_or(false)
             });
             if has_kernel {
-                
+
                 match compiler::pipeline::compile_kernel(func, device_fns.clone(), args.rows, args.cols) {
                     Err(diagnostics) => {
-                        for d in &diagnostics {
-                            eprintln!("[{:?}] {}", d.kind, d.msg);
-                        }
+                        let kernel_name = func.sig.ident.to_string();
+                        let msg = diagnostics.iter()
+                            .map(|d| format!("[{:?}] {}", d.kind, d.msg))
+                            .collect::<Vec<_>>()
+                            .join("\n");
+                        let full_msg = format!("kernel `{kernel_name}` failed to compile:\n{msg}");
+                        compile_errors.push(quote! { compile_error!(#full_msg); });
+                        continue;
                     }
                     Ok(compiled) => {
                         let name = &compiled.name;
                         std::fs::write(format!("generated_{name}.cu"), &compiled.cuda).expect("Failed to write kernel file");
                     }
                 }
-                
 
                 let name = func.sig.ident.to_string();
                 let ptx_name = format!("generated_{name}.ptx");
@@ -127,6 +132,8 @@ pub fn cuda_module_impl(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mod_vis   = &module.vis;
 
     quote! {
+        #( #compile_errors )*
+
         #mod_vis mod #mod_name {
             #( #items )*
         }
