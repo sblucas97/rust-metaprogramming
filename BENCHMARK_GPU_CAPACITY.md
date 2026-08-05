@@ -1,7 +1,17 @@
 # GPU Capacity & Benchmark Sizing
 
-Findings and sizing decisions for running `nbodies` and `nearest_neighbor` at
-"max device capacity", then two successive 15% step-downs.
+Findings and sizing decisions for running each benchmark kernel at "max
+device capacity", then two successive 15% step-downs.
+
+> **Note on re-measurement:** the device section and the `nbodies` /
+> `nearest_neighbor` tiers below were captured in an earlier session (free
+> memory 7.421 GB at that time). The `mm` / `julia` / `ripple` / `raytracer`
+> / `vector_sum` tiers were added in a later session, re-querying free memory
+> at that time (7.348 GB — slightly less headroom, other things were using
+> the GPU) and reapplying the same 90%-of-free / 15%-step-down methodology.
+> The tier sizes below reflect whichever free-memory reading was current
+> when each kernel's numbers were computed; re-run the query in
+> `## Methodology` if you want everything on one consistent snapshot.
 
 ## Device
 
@@ -87,17 +97,114 @@ The FLOP estimate was pessimistic — actual GPU throughput on this kernel is
 higher than the crude model assumed. All three tiers are well within a
 reasonable benchmark run.
 
+## vector_sum — memory-bound, single pass (O(n))
+
+Re-queried free memory for this and the remaining kernels: **7.348 GB**
+free at query time → usable budget (90%) = **6.614 GB**.
+
+Device allocations: `a` + `b` + `result` (3 × f32/element) = **12
+bytes/element** — same footprint and same O(n) shape as `nearest_neighbor`,
+so the memory-bound tiers are directly runnable.
+
+| Tier | N (elements) | Device memory | Measured duration (h2d+kernel+d2h) |
+|---|---|---|---|
+| 100% (max) | **551,121,715** | 6.613 GB | **4.03 s** (kernel 17.7 ms) |
+| 85% | **468,453,457** | 5.621 GB | **3.36 s** (kernel 14.0 ms) |
+| 72.25% | **398,185,439** | 4.778 GB | **2.91 s** (kernel 11.9 ms) |
+
+Measured directly with the standalone CUDA binary (`examples/bin/vector_sum`,
+built from `examples/src/benchmarks/cuda/vector_sum.cu`) via `/usr/bin/time`
+for wall clock plus the binary's own `cudaEvent`-timed kernel line. Kernel
+time is negligible (single add per element); total time is dominated by
+host-side vector generation and H2D/D2H transfer, scaling linearly with N as
+expected.
+
+## mm (matrix multiply) — memory-bound size *is* practically runnable (O(n³))
+
+Device allocations: `a` (m×n) + `b` (n×k) + `c` (m×k), all f32, with
+`m = n = k = dim` (see `examples/src/benchmarks/mm.rs`) = **12 bytes ×
+dim²**, i.e. `dim = floor(sqrt(usable_budget / 12))`.
+
+| Tier | dim | Device memory | Elements (dim²) |
+|---|---|---|---|
+| 100% (max) | **23,475** | 6.613 GB | 551,075,625 |
+| 85% | **19,953** | 4.777 GB | 398,122,209 |
+| 72.25% | **16,960** | 3.452 GB | 287,641,600 |
+
+Unlike `nbodies`, this one *is* practically runnable at the memory-bound
+size — checked by measuring `bin/mm` directly at 512/1024/2048/4096/8192/
+16384 first (confirms clean O(dim³) scaling — each doubling costs ~8x), then
+running the exact tier sizes above rather than trusting the extrapolation:
+
+| Tier | dim | Measured kernel time | Measured wall time |
+|---|---|---|---|
+| 100% (max) | 23,475 | **26.93 s** | 31.94 s |
+| 85% | 19,953 | **16.01 s** | 19.63 s |
+| 72.25% | 16,960 | **9.14 s** | 11.88 s |
+
+This is a naive (non-tiled, no shared memory) matmul kernel, so it's much
+more compute-bound than the other kernels here — tier 1 takes ~27s of actual
+kernel time, longer than any other benchmark in this doc, but still finishes
+in well under a minute and doesn't need the nbodies-style "pick a smaller
+time-budgeted N" treatment. Host RAM was checked before running tier 1
+(`m*n*4` bytes × 3 arrays ≈ 6.6 GB) — fine against the ~10 GB that was
+available.
+
+## julia / ripple / raytracer — pixel-parallel image kernels, O(dim²) total work
+
+All three write a `dim × dim` RGBA `f32` image = **16 bytes/pixel**
+(`raytracer` also uploads a fixed 20-sphere array, 560 bytes — negligible
+next to the image). Same formula as `mm`: `dim = floor(sqrt(usable_budget /
+16))`. Because all three share this footprint, **the tier sizes are
+identical** across all three kernels:
+
+| Tier | dim | Device memory | Pixels (dim²) |
+|---|---|---|---|
+| 100% (max) | **20,330** | 6.613 GB | 413,308,900 |
+| 85% | **17,280** | 4.778 GB | 298,598,400 |
+| 72.25% | **14,688** | 3.452 GB | 215,737,344 |
+
+`julia` and `ripple` launch one thread *per block* (`spawn!(..., (dim, dim,
+1), (1, 1, 1), ...)` — grid dims (`dim`, `dim`, 1), block dims (1,1,1)),
+which is a very unusual (and inefficient — 31/32 lanes idle per warp)
+launch shape. This also means `dim` is bound by **max grid dim y = 65535**,
+not just memory — but the memory-bound `dim` (20,330) is well under that, so
+memory is still the binding constraint, same conclusion as the other
+kernels. `raytracer` uses a conventional 16×16 2D block instead.
+
+Verified all three scale as O(dim²) (quadratic in dim = linear in pixel
+count) by measuring at dim = 256/1024/4096/8192 first — confirms the
+1-thread-per-block launch shape for `julia`/`ripple` doesn't blow up despite
+being wasteful, then measured the exact tier sizes directly:
+
+| Tier | dim | julia (kernel) | ripple (kernel) | raytracer (kernel) |
+|---|---|---|---|---|
+| 100% (max) | 20,330 | **3.64 s** | **367 ms** | **35 ms** |
+| 85% | 17,280 | **2.66 s** | **265 ms** | **22 ms** |
+| 72.25% | 14,688 | **1.87 s** | **185 ms** | **17 ms** |
+
+`julia`'s 200-iteration escape loop per pixel makes it noticeably heavier
+than `ripple` (closed-form trig) or `raytracer` (20-sphere loop, but only
+~4 pixels in 8192² actually iterate the full sphere list at these test
+sphere counts). All three finish in well under 4 seconds even at 100%
+capacity — comfortably the fastest-per-tier kernels in this doc.
+
 ## Vector sizes to pass at run time
 
-Both benchmarks take a single `size` arg (`N`), forwarded straight into
-`run(n)` as either `num_records` (nearest_neighbor) or `n` (nbodies) — that's
-the value to pass on the command line / as the Makefile size var.
+Every benchmark takes a single `size` arg (`N` or `dim`), forwarded straight
+into `run(n)` — that's the value to pass on the command line / as the
+Makefile size var.
 
 Invocation shapes (from `examples/src/main.rs` and `examples/Makefile`):
 
 ```
 ../target/debug/demo nearest_neighbor <N>
 ../target/debug/demo nbodies <N>
+../target/debug/demo vector_sum <N>
+../target/debug/demo mm <dim>
+../target/debug/demo julia <dim>
+../target/debug/demo ripple <dim>
+../target/debug/demo raytracer <dim>
 
 # or, from examples/
 NEAREST_NEIGHBOR_SIZE=<N> make nearest_neighbor
@@ -131,6 +238,32 @@ NBODIES_SIZE=<N> make nbodies
 ../target/debug/demo nbodies 850000
 ../target/debug/demo nbodies 722500
 ```
+
+### vector_sum
+
+| Tier | N to pass | Expected duration |
+|---|---|---|
+| 100% (max) | `551121715` | ~4.0 s |
+| 85% | `468453457` | ~3.4 s |
+| 72.25% | `398185439` | ~2.9 s |
+
+### mm
+
+| Tier | dim to pass | Expected duration |
+|---|---|---|
+| 100% (max) | `23475` | ~27 s |
+| 85% | `19953` | ~16 s |
+| 72.25% | `16960` | ~9 s |
+
+### julia / ripple / raytracer
+
+Same `dim` values for all three (identical 16-byte/pixel footprint):
+
+| Tier | dim to pass | julia | ripple | raytracer |
+|---|---|---|---|---|
+| 100% (max) | `20330` | ~3.6 s | ~0.4 s | ~0.04 s |
+| 85% | `17280` | ~2.7 s | ~0.3 s | ~0.02 s |
+| 72.25% | `14688` | ~1.9 s | ~0.2 s | ~0.02 s |
 
 ## Running each kernel N times for averaging/analysis
 
@@ -238,3 +371,22 @@ etc.) if the built-in summary isn't enough.
   tiers.
 - All six proposed runs (both benchmarks × 3 tiers) complete in **under 15
   seconds each** — no run should feel "SO long."
+- **vector_sum**: same 12-bytes/element, O(n) profile as `nearest_neighbor`
+  — memory-bound tiers used as-is (551,121,715 / 468,453,457 / 398,185,439).
+  Measured **~2.9-4.0 s** total across all three tiers.
+- **mm**: O(dim³) like `nbodies` is O(n²), but unlike `nbodies` the
+  memory-bound `dim` (23,475 / 19,953 / 16,960) turned out to be directly
+  measurable and practically runnable — no need to time-budget down to a
+  smaller N. Measured **~9-27 s** kernel time across the three tiers (the
+  slowest kernel in this doc, but still well under a minute).
+- **julia / ripple / raytracer**: all three are O(dim²) total work (linear
+  in pixel count) with an identical 16-bytes/pixel footprint, so they share
+  one set of tiers (20,330 / 17,280 / 14,688). `julia` and `ripple` use an
+  unusual 1-thread-per-block launch (`grid=(dim,dim,1)`, `block=(1,1,1)`),
+  which is also grid-dim-y-bound (≤ 65535) — not binding here since memory
+  caps `dim` well below that. Measured **~17 ms to ~3.6 s** across all nine
+  (kernel × tier) combinations — the fastest kernels in this doc.
+- Per-kernel `results/run_<kernel>.sh` scripts (mirroring the existing
+  `run_julia.sh`) build both implementations and run all three tiers × 30
+  reps each, writing `results/<kernel>_runs.csv` and
+  `results/<kernel>_summary.txt`.

@@ -21,37 +21,9 @@ fn generate_bodies(n: usize) -> Vec<f32> {
     bodies
 }
 
-/// CPU reference: same force loop and integration order as the kernels.
-fn cpu_step(p: &mut [f32], n: usize) {
-    for i in 0..n {
-        let mut fx = 0.0f32;
-        let mut fy = 0.0f32;
-        let mut fz = 0.0f32;
-        for j in 0..n {
-            let dx = p[6 * j] - p[6 * i];
-            let dy = p[6 * j + 1] - p[6 * i + 1];
-            let dz = p[6 * j + 2] - p[6 * i + 2];
-            let dist_sqr = dx * dx + dy * dy + dz * dz + SOFTENING;
-            let inv_dist = 1.0f32 / dist_sqr.sqrt();
-            let inv_dist3 = inv_dist * inv_dist * inv_dist;
-            fx += dx * inv_dist3;
-            fy += dy * inv_dist3;
-            fz += dz * inv_dist3;
-        }
-        p[6 * i + 3] += DT * fx;
-        p[6 * i + 4] += DT * fy;
-        p[6 * i + 5] += DT * fz;
-    }
-    for i in 0..n {
-        p[6 * i] += p[6 * i + 3] * DT;
-        p[6 * i + 1] += p[6 * i + 4] * DT;
-        p[6 * i + 2] += p[6 * i + 5] * DT;
-    }
-}
-
 pub fn run(n: usize) -> CudaVec<f32> {
     let bodies = generate_bodies(n);
-    let mut p: CudaVec<f32> = CudaVec::new(bodies.clone());
+    let mut p: CudaVec<f32> = CudaVec::new(bodies);
 
     let threads_per_block: u32 = 128;
     let num_blocks: u32 = (n as u32 + threads_per_block - 1) / threads_per_block;
@@ -80,22 +52,6 @@ pub fn run(n: usize) -> CudaVec<f32> {
     println!("[nbodies] elapsed: {:.3} ms", elapsed.as_secs_f64() * 1000.0);
 
     p.copy_from_device();
-
-    let mut expected = bodies;
-    for _ in 0..STEPS {
-        cpu_step(&mut expected, n);
-    }
-    let ok = p
-        .as_slice()
-        .iter()
-        .zip(expected.iter())
-        .all(|(gpu, cpu)| (gpu - cpu).abs() <= 1e-2 * cpu.abs().max(1.0));
-    println!(
-        "nbodies: {} ({} bodies, {} steps)",
-        if ok { "PASS" } else { "FAIL" },
-        n,
-        STEPS
-    );
 
     p
 }

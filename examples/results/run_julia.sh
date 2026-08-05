@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Runs the julia benchmark, Rust DSL vs hand-written CUDA, 30x at each of the
-# paper's sizes (3000/4000/5000/6000), then prints the mean/stdev/min/max/
-# median per (impl, size) plus the Rust-vs-CUDA overhead table.
+# reference sizes (7168/9216/11264, matching raytracer), then prints the
+# mean/stdev/min/max/median per (impl, size) plus the Rust-vs-CUDA overhead
+# table.
 #
 # Usage: ./run_julia.sh
 # (safe to run from anywhere -- paths are resolved relative to this script)
@@ -17,7 +18,7 @@ CUDA_BIN="$EXAMPLES_DIR/bin/julia"
 CSV="$SCRIPT_DIR/julia_runs.csv"
 SUMMARY="$SCRIPT_DIR/julia_summary.txt"
 RUNS=30
-SIZES=(3000 4000 5000 6000)
+SIZES=(7168 9216 11264)
 
 echo "Building Rust demo binary..."
 (cd "$EXAMPLES_DIR" && cargo build)
