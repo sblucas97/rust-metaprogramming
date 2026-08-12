@@ -6,37 +6,56 @@ RIPPLE_SIZE      ?= 8000
 NBODIES_SIZE     ?= 4096
 NEAREST_NEIGHBOR_SIZE ?= 100000
 
+NVCC_ARCH ?= sm_86
+
+# Debug build, for iterating on the compiler. Benchmarks use --release instead
+# (see `bench` below) -- the CPU implementations are meaningless at opt-level 0.
 build:
 	RUSTFLAGS="-A warnings" cargo build
 
-CUDA_BINS = /tmp/bench_vector_sum /tmp/bench_mm /tmp/bench_julia /tmp/bench_raytracer /tmp/bench_ripple /tmp/bench_nbodies /tmp/bench_nearest_neighbor
+release:
+	RUSTFLAGS="-A warnings" cargo build --release
 
-/tmp/bench_%: src/benchmarks/cuda/%.cu
-	nvcc -lm $< -o $@
+CUDA_KERNELS = vector_sum mm julia raytracer ripple nbodies nearest_neighbor
+CUDA_BINS = $(addprefix bin/,$(CUDA_KERNELS))
 
-benchmark: build $(CUDA_BINS)
+bin/%: src/benchmarks/cuda/%.cu
+	@mkdir -p bin
+	nvcc -lm -arch=$(NVCC_ARCH) $< -o $@
+
+cuda: $(CUDA_BINS)
+
+# One-off correctness/smoke pass: run each kernel once through both the DSL and
+# the hand-written CUDA. For timings use `make bench` instead -- a single run
+# is noise, and these sizes are not the benchmark tiers.
+smoke: build $(CUDA_BINS)
 	../target/debug/demo $(VECTOR_SUM_SIZE) $(MM_SIZE) $(JULIA_SIZE) $(RAYTRACER_SIZE) $(RIPPLE_SIZE)
-	/tmp/bench_vector_sum $(VECTOR_SUM_SIZE)
-	/tmp/bench_mm $(MM_SIZE)
-	/tmp/bench_julia $(JULIA_SIZE)
-	/tmp/bench_raytracer $(RAYTRACER_SIZE)
-	/tmp/bench_ripple $(RIPPLE_SIZE)
-
-clean:
-	rm -f *.cu *.h
+	./bin/vector_sum $(VECTOR_SUM_SIZE)
+	./bin/mm $(MM_SIZE)
+	./bin/julia $(JULIA_SIZE)
+	./bin/raytracer $(RAYTRACER_SIZE)
+	./bin/ripple $(RIPPLE_SIZE)
 
 run: build
 	../target/debug/demo $(VECTOR_SUM_SIZE) $(MM_SIZE) $(JULIA_SIZE)
 
-# Run only the nbodies benchmark (Rust DSL) and its hand-written CUDA
-# equivalent at the same N, for a direct timing comparison.
-nbodies: build /tmp/bench_nbodies
-	../target/debug/demo nbodies $(NBODIES_SIZE)
-	/tmp/bench_nbodies $(NBODIES_SIZE)
+# Benchmarking entry points. Everything they do is configured in
+# scripts/kernels.conf; pass IMPLS/RUNS/SIZES to override.
+#
+#   make bench                              every kernel, all three impls
+#   make bench IMPLS=rust-gpu,cuda          DSL vs hand-written CUDA
+#   make bench-julia IMPLS=rust-gpu,rust    DSL vs CPU, julia only
+#   make bench-mm RUNS=5 SIZES="512 1024"
+BENCH_FLAGS = $(if $(IMPLS),-i $(IMPLS)) $(if $(RUNS),-n $(RUNS)) $(if $(SIZES),-s "$(SIZES)")
 
-# Run only the nearest_neighbor benchmark (Rust DSL) and its hand-written CUDA
-# equivalent at the same N, for a direct timing comparison.
-nearest_neighbor: build /tmp/bench_nearest_neighbor
-	../target/debug/demo nearest_neighbor $(NEAREST_NEIGHBOR_SIZE)
-	/tmp/bench_nearest_neighbor $(NEAREST_NEIGHBOR_SIZE)
+bench:
+	./scripts/run_all.sh $(BENCH_FLAGS)
 
+bench-%:
+	./scripts/run_bench.sh -k $* $(BENCH_FLAGS)
+
+clean:
+	rm -f *.cu *.h
+	rm -rf bin
+
+.PHONY: build release cuda smoke run bench clean

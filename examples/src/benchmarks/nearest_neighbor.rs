@@ -4,7 +4,7 @@ use macros::{cuda_module, spawn};
 use runtime::CudaVec;
 
 /// Deterministic pseudo-random coordinates so the CPU reference is reproducible.
-fn generate_locations(num_records: usize) -> Vec<f32> {
+pub(crate) fn generate_locations(num_records: usize) -> Vec<f32> {
     let mut state: u32 = 7919;
     let mut locations = Vec::with_capacity(num_records * 2);
     for _ in 0..num_records {

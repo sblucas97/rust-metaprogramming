@@ -5,28 +5,34 @@
 # so this script doesn't know or care what kernel it's running.
 #
 # Usage:
-#   bench_runs.sh -o <csv_file> -k <kernel> -i rust|cuda -s <size> [-n <runs>] -- <command> [args...]
+#   bench_runs.sh -o <csv_file> -k <kernel> -i rust-gpu|rust|cuda -s <size> [-n <runs>] [-v <version>] -- <command> [args...]
 #
 #   -o   CSV file to append to (created with a header if it doesn't exist)
 #   -k   kernel name, e.g. nbodies / nearest_neighbor (just a label, doesn't have
 #        to match the binary's own "[name]" tag, though it usually will)
-#   -i   which implementation this run is: "rust" (the DSL, via demo) or "cuda"
+#   -i   which implementation this run is: "rust-gpu" (the DSL / custom
+#        compiler, via demo), "rust" (pure Rust on the CPU, rayon), or "cuda"
 #        (the hand-written .cu binary) -- this is the column you filter/group
-#        on to compare the two
+#        on to compare implementations
 #   -s   problem size N you're passing to the command (recorded for grouping,
 #        not used to build the command -- put it in the command yourself)
 #   -n   number of repetitions (default 30)
+#   -v   version label recorded in each row, e.g. v3, so rows stay
+#        self-describing when CSVs from different batches are concatenated
+#
+# Normally driven by run_bench.sh, which resolves sizes/impls/version from
+# scripts/kernels.conf; call it directly for one-off runs.
 #
 # Examples:
-#   bench_runs.sh -o runs.csv -k nbodies -i rust -s 1000000 -n 30 -- \
-#       ../target/debug/demo nbodies 1000000
+#   bench_runs.sh -o runs.csv -k nbodies -i rust-gpu -s 1000000 -n 30 -- \
+#       ../target/release/demo nbodies 1000000
 #   bench_runs.sh -o runs.csv -k nbodies -i cuda -s 1000000 -n 30 -- \
-#       /tmp/bench_nbodies 1000000
+#       ../bin/nbodies 1000000
 
 set -euo pipefail
 
 usage() {
-    echo "Usage: $0 -o <csv_file> -k <kernel> -i rust|cuda -s <size> [-n <runs>] -- <command> [args...]" >&2
+    echo "Usage: $0 -o <csv_file> -k <kernel> -i rust-gpu|rust|cuda -s <size> [-n <runs>] [-v <version>] -- <command> [args...]" >&2
     exit 1
 }
 
@@ -35,6 +41,7 @@ kernel=""
 impl=""
 size=""
 runs=30
+version=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -43,19 +50,23 @@ while [[ $# -gt 0 ]]; do
         -i) impl="$2"; shift 2 ;;
         -s) size="$2"; shift 2 ;;
         -n) runs="$2"; shift 2 ;;
+        -v) version="$2"; shift 2 ;;
         --) shift; break ;;
         *) usage ;;
     esac
 done
 
 [[ -z "$csv_file" || -z "$kernel" || -z "$size" || $# -eq 0 ]] && usage
-if [[ "$impl" != "rust" && "$impl" != "cuda" ]]; then
-    echo "Error: -i must be 'rust' or 'cuda' (got '${impl}')" >&2
-    usage
-fi
+case "$impl" in
+    rust-gpu|rust|cuda) ;;
+    *)
+        echo "Error: -i must be 'rust-gpu', 'rust' or 'cuda' (got '${impl}')" >&2
+        usage
+        ;;
+esac
 
 if [[ ! -f "$csv_file" ]]; then
-    echo "timestamp,kernel,impl,size,run_index,elapsed_ms,command" > "$csv_file"
+    echo "timestamp,version,kernel,impl,size,run_index,elapsed_ms,command" > "$csv_file"
 fi
 
 echo "Running '$*' x${runs} -> kernel=${kernel} impl=${impl} size=${size}, appending to ${csv_file}"
@@ -66,7 +77,7 @@ for ((i = 1; i <= runs; i++)); do
         if [[ "$line" =~ \[([a-zA-Z0-9_]+)\]\ elapsed:\ ([0-9.]+)\ ms ]]; then
             ms="${BASH_REMATCH[2]}"
             ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            echo "${ts},${kernel},${impl},${size},${i},${ms},\"$*\"" >> "$csv_file"
+            echo "${ts},${version},${kernel},${impl},${size},${i},${ms},\"$*\"" >> "$csv_file"
             matched=1
         fi
     done <<< "$output"

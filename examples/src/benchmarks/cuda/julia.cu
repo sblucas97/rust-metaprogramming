@@ -17,7 +17,7 @@ __global__ void julia_kernel(float *ptr, uint64_t dim) {
         float ai = jy;
         float julia_value = 1.0f;
         uint32_t escaped = 0;
-        for (int iter = 0; iter < 200; iter++) {
+        for (uint64_t iter = 0; iter < 200; iter++) {
             if (escaped == 0) {
                 float nar = (ar * ar - ai * ai) + cr;
                 float nai = (ai * ar + ar * ai) + ci;

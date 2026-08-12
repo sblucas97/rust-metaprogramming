@@ -1,5 +1,16 @@
 # Why the Rust DSL sometimes beats hand-written CUDA (and whether the data is valid)
 
+> **STATUS: all fixes below are applied.** The codegen now emits typed loop
+> counters (`uint64_t i = 0ULL`), suffixed literals (`255.0f`), and `else`
+> branches; every `run_*.sh` (and the Makefile) builds with `-arch=sm_86`;
+> julia.cu/raytracer.cu loop counters were aligned to `uint64_t` to match
+> their Rust sources. Verified: 0 FP64 instructions in every generated PTX
+> (ripple's remaining 4 are inside nvcc's own `cosf` and appear identically
+> in the handwritten build); all 7 benchmarks run, nearest_neighbor PASSes;
+> interleaved mm@5000 now shows Rust ≈ **+1.8%** overhead vs CUDA (was
+> -12%). The summaries in this directory predate the fixes — re-run the
+> `run_*.sh` sweeps to refresh them.
+
 Analysis of the anomaly in the `*_summary.txt` results where the Rust DSL is
 sometimes *faster* than the pure CUDA binaries — most strikingly `mm`, where
 Rust wins by 11-13% at every size. Since the DSL ultimately runs CUDA under

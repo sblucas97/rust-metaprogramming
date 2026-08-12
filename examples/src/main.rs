@@ -7,6 +7,7 @@ fn main() {
     // `demo 4096`               -> run everything, size 4096 (clamped per-bench as before)
     // `demo nbodies`            -> run only nbodies, default size
     // `demo nbodies 4096`       -> run only nbodies, size 4096
+    // `demo nbodies_cpu 4096`   -> run the pure-Rust (rayon) CPU version instead
     let (bench, size_arg) = match args.get(1).map(String::as_str) {
         Some(name) if name.parse::<usize>().is_err() => (Some(name), args.get(2)),
         _ => (None, args.get(1)),
@@ -38,9 +39,32 @@ fn main() {
         Some("nbodies") => {
             benchmarks::nbodies::run(size);
         }
+        // Pure-Rust CPU (rayon) counterparts -- same arithmetic, no custom compiler.
+        Some("vector_sum_cpu") => {
+            benchmarks::cpu::vector_sum::run(size);
+        }
+        Some("mm_cpu") => {
+            benchmarks::cpu::mm::run(size);
+        }
+        Some("julia_cpu") => {
+            benchmarks::cpu::julia::run(size);
+        }
+        Some("raytracer_cpu") => {
+            benchmarks::cpu::raytracer::run(size);
+        }
+        Some("ripple_cpu") => {
+            benchmarks::cpu::ripple::run(size);
+        }
+        Some("nearest_neighbor_cpu") => {
+            benchmarks::cpu::nearest_neighbor::run(size);
+        }
+        Some("nbodies_cpu") => {
+            benchmarks::cpu::nbodies::run(size);
+        }
         Some(other) => {
             eprintln!(
-                "unknown benchmark `{other}` (expected one of: vector_sum, mm, julia, raytracer, ripple, nearest_neighbor, nbodies)"
+                "unknown benchmark `{other}` (expected one of: vector_sum, mm, julia, raytracer, \
+                 ripple, nearest_neighbor, nbodies -- each also available with a `_cpu` suffix)"
             );
             std::process::exit(1);
         }

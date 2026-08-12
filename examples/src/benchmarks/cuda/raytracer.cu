@@ -19,7 +19,7 @@ __global__ void raytracing(const float *spheres, float *image, uint64_t width, u
     float r = 0.0f, g = 0.0f, b = 0.0f;
     float maxz = -99999.0f;
 
-    for (int i = 0; i < NUM_SPHERES; i++) {
+    for (uint64_t i = 0; i < NUM_SPHERES; i++) {
         float sphereRadius = spheres[i * 7 + 3];
         float dx = ox - spheres[i * 7 + 4];
         float dy = oy - spheres[i * 7 + 5];

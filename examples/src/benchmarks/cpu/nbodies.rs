@@ -1,0 +1,57 @@
+use rayon::prelude::*;
+
+use std::time::Instant;
+
+use crate::benchmarks::nbodies::{DT, FLOATS_PER_BODY, SOFTENING, STEPS, generate_bodies};
+
+// Mirrors the DSL kernels in benchmarks::nbodies: same bodies from the shared
+// generator, same STEPS iterations of (force pass, integrate pass), same
+// interleaved pos/vel layout. Only the compute is timed, matching the DSL side
+// which times just the spawn!s.
+//
+// The force pass reads every body's position while writing its own velocity.
+// On the GPU that aliasing is fine because the two halves of the record never
+// overlap; in safe Rust it needs a read-only snapshot of the buffer, which
+// costs an O(n) copy per step against O(n^2) of force computation.
+pub fn run(n: usize) -> Vec<f32> {
+    let mut p = generate_bodies(n);
+
+    let start = Instant::now();
+    for _ in 0..STEPS {
+        let snapshot = p.clone();
+        p.par_chunks_exact_mut(FLOATS_PER_BODY)
+            .enumerate()
+            .for_each(|(i, body)| {
+                let mut fx = 0.0_f32;
+                let mut fy = 0.0_f32;
+                let mut fz = 0.0_f32;
+                for j in 0..n {
+                    let dx = snapshot[6 * j] - snapshot[6 * i];
+                    let dy = snapshot[6 * j + 1] - snapshot[6 * i + 1];
+                    let dz = snapshot[6 * j + 2] - snapshot[6 * i + 2];
+                    let dist_sqr = dx * dx + dy * dy + dz * dz + SOFTENING;
+                    let inv_dist = 1.0_f32 / dist_sqr.sqrt();
+                    let inv_dist3 = inv_dist * inv_dist * inv_dist;
+                    fx += dx * inv_dist3;
+                    fy += dy * inv_dist3;
+                    fz += dz * inv_dist3;
+                }
+                body[3] += DT * fx;
+                body[4] += DT * fy;
+                body[5] += DT * fz;
+            });
+
+        p.par_chunks_exact_mut(FLOATS_PER_BODY).for_each(|body| {
+            body[0] += body[3] * DT;
+            body[1] += body[4] * DT;
+            body[2] += body[5] * DT;
+        });
+    }
+    let elapsed = start.elapsed();
+    println!(
+        "[nbodies_cpu] elapsed: {:.3} ms",
+        elapsed.as_secs_f64() * 1000.0
+    );
+
+    p
+}

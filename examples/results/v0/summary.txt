@@ -1,0 +1,54 @@
+sources: /home/kranex/dev/rust-metaprogramming/examples/results/v0/julia/runs.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v0/mm/runs.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v0/nbodies/runs.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v0/nearest_neighbor/runs.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v0/raytracer/runs.csv
+versions: (unversioned)
+
+kernel              impl      size          n   mean_ms     stdev_ms  min_ms    max_ms    median_ms   
+------------------------------------------------------------------------------------------------------
+julia               cuda      11264         30  1029.151    28.471    1001.601  1088.153  1015.623    
+julia               cuda      7168          30  417.416     13.875    405.146   448.603   412.111     
+julia               cuda      9216          30  675.053     3.482     674.183   693.172   674.228     
+julia               rust-gpu  11264         30  1033.991    21.327    1012.322  1090.681  1023.927    
+julia               rust-gpu  7168          30  430.714     38.541    405.357   620.901   427.925     
+julia               rust-gpu  9216          30  671.051     2.267     669.439   674.548   669.500     
+mm                  cuda      5000          30  218.851     3.609     213.796   227.214   217.417     
+mm                  cuda      7000          30  599.804     11.746    587.864   633.712   593.887     
+mm                  cuda      9000          30  1265.505    39.114    1188.018  1326.701  1267.962    
+mm                  rust-gpu  5000          30  193.004     4.367     187.100   208.740   193.022     
+mm                  rust-gpu  7000          30  531.995     12.413    516.835   565.164   531.422     
+mm                  rust-gpu  9000          30  1100.315    47.734    1051.972  1229.454  1080.764    
+nbodies             cuda      100000        30  139.275     1.645     136.961   143.551   138.930     
+nbodies             cuda      200000        30  579.942     9.305     568.499   600.417   576.592     
+nbodies             cuda      400000        30  2356.574    74.891    2206.112  2513.499  2360.435    
+nbodies             rust-gpu  100000        30  142.691     3.326     140.103   152.647   141.382     
+nbodies             rust-gpu  200000        30  575.002     28.231    537.650   618.865   578.081     
+nbodies             rust-gpu  400000        30  2390.242    48.200    2322.505  2515.561  2393.712    
+nearest_neighbor    cuda      100000000     30  3.124       0.102     3.066     3.610     3.088       
+nearest_neighbor    cuda      200000000     30  6.043       0.040     5.991     6.159     6.036       
+nearest_neighbor    cuda      300000000     30  9.227       0.507     8.927     10.773    9.014       
+nearest_neighbor    rust-gpu  100000000     30  3.408       0.224     3.209     4.102     3.335       
+nearest_neighbor    rust-gpu  200000000     30  6.510       0.498     6.136     8.163     6.277       
+nearest_neighbor    rust-gpu  300000000     30  9.430       0.445     9.087     10.786    9.228       
+raytracer           cuda      11264         30  10.191      0.618     9.364     11.492    10.079      
+raytracer           cuda      7168          30  4.311       0.452     3.893     5.219     4.146       
+raytracer           cuda      9216          30  7.622       0.586     6.740     8.454     7.748       
+raytracer           rust-gpu  11264         30  10.670      0.514     9.432     11.733    10.695      
+raytracer           rust-gpu  7168          30  4.479       0.318     4.174     5.674     4.343       
+raytracer           rust-gpu  9216          30  6.992       0.610     6.191     8.801     6.784       
+
+rust-gpu vs cuda overhead
+kernel              size          rust-gpu_ms   cuda_ms       overhead_ms overhead_%  slowdown_x  
+--------------------------------------------------------------------------------------------------
+julia               11264         1033.991      1029.151      4.840       0.5         1.00x       
+julia               7168          430.714       417.416       13.298      3.2         1.03x       
+julia               9216          671.051       675.053       -4.002      -0.6        0.99x       
+mm                  5000          193.004       218.851       -25.847     -11.8       0.88x       
+mm                  7000          531.995       599.804       -67.808     -11.3       0.89x       
+mm                  9000          1100.315      1265.505      -165.190    -13.1       0.87x       
+nbodies             100000        142.691       139.275       3.415       2.5         1.02x       
+nbodies             200000        575.002       579.942       -4.940      -0.9        0.99x       
+nbodies             400000        2390.242      2356.574      33.667      1.4         1.01x       
+nearest_neighbor    100000000     3.408         3.124         0.285       9.1         1.09x       
+nearest_neighbor    200000000     6.510         6.043         0.467       7.7         1.08x       
+nearest_neighbor    300000000     9.430         9.227         0.203       2.2         1.02x       
+raytracer           11264         10.670        10.191        0.478       4.7         1.05x       
+raytracer           7168          4.479         4.311         0.168       3.9         1.04x       
+raytracer           9216          6.992         7.622         -0.630      -8.3        0.92x       

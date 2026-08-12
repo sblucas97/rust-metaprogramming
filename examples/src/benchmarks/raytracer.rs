@@ -11,7 +11,7 @@ fn rnd(x: f32, state: &mut u32) -> f32 {
     x * v as f32 / 32767.0
 }
 
-fn generate_spheres(dim: usize) -> Vec<f32> {
+pub(crate) fn generate_spheres(dim: usize) -> Vec<f32> {
     let (radius, sum) = match dim {
         256  => (20.0f32,  5.0f32),
         1024 => (80.0f32,  20.0f32),

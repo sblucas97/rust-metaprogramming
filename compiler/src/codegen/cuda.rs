@@ -289,7 +289,30 @@ impl Generator {
         }
         self.indent -= 1;
 
-        result.push_str(&format!("{}}}\n", self.indent_str()));
+        match &expr_if.else_branch {
+            Some((_, else_expr)) => match &**else_expr {
+                syn::Expr::Block(else_block) => {
+                    result.push_str(&format!("{}}} else {{\n", self.indent_str()));
+                    self.indent += 1;
+                    for stmt in &else_block.block.stmts {
+                        result.push_str(&self.gen_stmt(stmt));
+                    }
+                    self.indent -= 1;
+                    result.push_str(&format!("{}}}\n", self.indent_str()));
+                }
+                // `else if` chain: syn nests the next if directly in else_branch
+                syn::Expr::If(nested_if) => {
+                    result.push_str(&format!("{}}} else ", self.indent_str()));
+                    let nested = self.gen_if(nested_if);
+                    // strip the nested if's leading indent so it attaches to `} else `
+                    result.push_str(nested.trim_start());
+                }
+                other => panic!("Unsupported else branch expression: {:?}", other),
+            },
+            None => {
+                result.push_str(&format!("{}}}\n", self.indent_str()));
+            }
+        }
         result
     }
 
@@ -333,14 +356,15 @@ impl Generator {
             _ => panic!("Unsupported for loop pattern"),
         };
 
-        let (start, end, step) = match &*expr_for_loop.expr {
+        let (start, end, step, counter_type) = match &*expr_for_loop.expr {
             syn::Expr::MethodCall(method_call) if method_call.method == "step_by" => {
                 let step = self.gen_expr(&method_call.args[0]);
                 match &*method_call.receiver {
                     syn::Expr::Tuple(tuple) if tuple.elems.len() == 2 => {
+                        let counter_type = self.loop_counter_type(&tuple.elems[0]);
                         let start = self.gen_expr(&tuple.elems[0]);
                         let end   = self.gen_expr(&tuple.elems[1]);
-                        (start, end, step)
+                        (start, end, step, counter_type)
                     }
                     _ => panic!("Expected a 2-element tuple as step_by receiver"),
                 }
@@ -356,15 +380,30 @@ impl Generator {
         self.indent -= 1;
 
         format!(
-            "{indent}for (int {var} = {start}; {var} < {end}; {var} += {step}) {{\n{body}{end_indent}}}",
-            indent     = self.indent_str(),
-            var        = loop_var,
-            start      = start,
-            end        = end,
-            step       = step,
-            body       = body_stmts,
-            end_indent = self.indent_str(),
+            "{indent}for ({counter_type} {var} = {start}; {var} < {end}; {var} += {step}) {{\n{body}{end_indent}}}",
+            indent       = self.indent_str(),
+            counter_type = counter_type,
+            var          = loop_var,
+            start        = start,
+            end          = end,
+            step         = step,
+            body         = body_stmts,
+            end_indent   = self.indent_str(),
         )
+    }
+
+    /// C type for a for-loop counter, taken from the range-start literal's
+    /// suffix (`0u64` -> `uint64_t`). Unsuffixed or non-literal starts keep
+    /// the historical `int`.
+    fn loop_counter_type(&self, start: &syn::Expr) -> String {
+        if let syn::Expr::Lit(expr_lit) = start {
+            if let syn::Lit::Int(int_lit) = &expr_lit.lit {
+                if let Some(c_type) = Self::type_map().get(int_lit.suffix()) {
+                    return c_type.to_string();
+                }
+            }
+        }
+        "int".to_string()
     }
 
     fn gen_expr_return(&mut self, expr_return: &syn::ExprReturn) -> String {
@@ -415,8 +454,26 @@ impl Generator {
 
     fn gen_lit(&self, lit: &syn::ExprLit) -> String {
         match &lit.lit {
-            syn::Lit::Int(int_lit)     => int_lit.base10_digits().to_string(),
-            syn::Lit::Float(float_lit) => float_lit.base10_digits().to_string(),
+            syn::Lit::Int(int_lit) => {
+                let digits = int_lit.base10_digits();
+                match int_lit.suffix() {
+                    "u64" => format!("{digits}ULL"),
+                    "u32" => format!("{digits}U"),
+                    "i64" => format!("{digits}LL"),
+                    // "", "i32", "u8", "u16": plain int literal promotes correctly
+                    _ => digits.to_string(),
+                }
+            }
+            syn::Lit::Float(float_lit) => {
+                let digits = float_lit.base10_digits();
+                match float_lit.suffix() {
+                    // without the `f` suffix a C float literal is a double and
+                    // silently promotes whole expressions to fp64
+                    "f32" => format!("{digits}f"),
+                    // "f64" and unsuffixed: C double, matching Rust's f64 default
+                    _ => digits.to_string(),
+                }
+            }
             l => panic!("gen_lit: {:?} not implemented", l),
         }
     }

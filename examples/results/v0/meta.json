@@ -1,0 +1,42 @@
+{
+  "version": "v0",
+  "note": "Migrated into the versioned layout after the fact. These runs predate run_bench.sh, so only what could be recovered from git history is recorded here. The impl column was rewritten from 'rust' to 'rust-gpu': at the time 'rust' meant the DSL, and it now means the pure-Rust CPU implementation. The CSVs have no version column.",
+  "environment": {
+    "git_commit": "d1f686bb242be4d15de2c1d15885ff3dd948165e",
+    "git_commit_ref": "d1f686b (adding results for 30x each kernel)",
+    "gpu": "NVIDIA GeForce RTX 3070, 8192 MiB",
+    "cpu_count": 16
+  },
+  "kernels": {
+    "julia": {
+      "impls": ["rust-gpu", "cuda"],
+      "runs": 30,
+      "sizes": ["7168", "9216", "11264"],
+      "profile": "debug"
+    },
+    "mm": {
+      "impls": ["rust-gpu", "cuda"],
+      "runs": 30,
+      "sizes": ["5000", "7000", "9000"],
+      "profile": "debug"
+    },
+    "nbodies": {
+      "impls": ["rust-gpu", "cuda"],
+      "runs": 30,
+      "sizes": ["100000", "200000", "400000"],
+      "profile": "debug"
+    },
+    "nearest_neighbor": {
+      "impls": ["rust-gpu", "cuda"],
+      "runs": 30,
+      "sizes": ["100000000", "200000000", "300000000"],
+      "profile": "debug"
+    },
+    "raytracer": {
+      "impls": ["rust-gpu", "cuda"],
+      "runs": 30,
+      "sizes": ["7168", "9216", "11264"],
+      "profile": "debug"
+    }
+  }
+}

@@ -3,13 +3,13 @@ use std::time::Instant;
 use macros::{cuda_module, spawn};
 use runtime::CudaVec;
 
-const FLOATS_PER_BODY: usize = 6; // pos x/y/z, vel x/y/z
-const DT: f32 = 0.01;
-const SOFTENING: f32 = 1e-9;
-const STEPS: usize = 3;
+pub(crate) const FLOATS_PER_BODY: usize = 6; // pos x/y/z, vel x/y/z
+pub(crate) const DT: f32 = 0.01;
+pub(crate) const SOFTENING: f32 = 1e-9;
+pub(crate) const STEPS: usize = 3;
 
 /// Deterministic pseudo-random bodies in [-1, 1], zero initial velocity.
-fn generate_bodies(n: usize) -> Vec<f32> {
+pub(crate) fn generate_bodies(n: usize) -> Vec<f32> {
     let mut state: u32 = 42;
     let mut bodies = vec![0.0f32; n * FLOATS_PER_BODY];
     for body in bodies.chunks_exact_mut(FLOATS_PER_BODY) {

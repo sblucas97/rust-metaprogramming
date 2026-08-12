@@ -1,0 +1,17 @@
+{
+  "version": "v1",
+  "note": "Migrated into the versioned layout after the fact: a julia-only re-run that was sitting loose in results/ on top of commit d1f686b, uncommitted. Same caveats as v0 -- the impl column was rewritten from 'rust' to 'rust-gpu', and there is no version column. Timings here still include the H2D/D2H transfers, because julia.rs only started timing the kernel alone in the change that introduced run_bench.sh; they are not comparable with v2 onwards.",
+  "environment": {
+    "git_commit_ref": "d1f686b (adding results for 30x each kernel), working tree modified",
+    "gpu": "NVIDIA GeForce RTX 3070, 8192 MiB",
+    "cpu_count": 16
+  },
+  "kernels": {
+    "julia": {
+      "impls": ["rust-gpu", "cuda"],
+      "runs": 30,
+      "sizes": ["7168", "9216", "11264"],
+      "profile": "debug"
+    }
+  }
+}

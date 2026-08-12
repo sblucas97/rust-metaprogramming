@@ -1,3 +1,4 @@
+pub mod cpu;
 pub mod julia;
 pub mod mm;
 pub mod nbodies;
