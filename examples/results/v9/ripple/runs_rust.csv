@@ -1,0 +1,2 @@
+timestamp,version,kernel,impl,size,run_index,elapsed_ms,command
+2026-08-14T21:31:07Z,v9,ripple,rust,30000,1,17198.920,"/home/kranex/dev/rust-metaprogramming/target/release/demo ripple_cpu 30000"

@@ -1,0 +1,2 @@
+timestamp,version,kernel,impl,size,run_index,elapsed_ms,command
+2026-08-14T21:44:07Z,v9,nearest_neighbor,rust,300000000,1,779.130,"/home/kranex/dev/rust-metaprogramming/target/release/demo nearest_neighbor_cpu 300000000"

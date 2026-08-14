@@ -12,7 +12,7 @@
     "cargo": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)"
   },
   "started_at": "2026-08-14T19:55:57Z",
-  "finished_at": "2026-08-14T20:13:17Z",
+  "finished_at": "2026-08-14T22:21:31Z",
   "kernels": {
     "julia": {
       "by_impl": {
@@ -47,8 +47,176 @@
           "runs": 30,
           "order": "blocked",
           "profile": "release",
-          "started_at": "2026-08-14T19:47:40Z",
-          "finished_at": "2026-08-14T20:13:17Z"
+          "started_at": "2026-08-14T20:32:24Z",
+          "finished_at": "2026-08-14T20:57:53Z"
+        }
+      },
+      "impls": [
+        "cuda-oxide",
+        "rust",
+        "rust-gpu"
+      ]
+    },
+    "nbodies": {
+      "by_impl": {
+        "rust-gpu": {
+          "sizes": [
+            "80000",
+            "500000",
+            "800000"
+          ],
+          "runs": 30,
+          "order": "blocked",
+          "profile": "release",
+          "started_at": "2026-08-14T22:04:53Z",
+          "finished_at": "2026-08-14T22:17:54Z"
+        },
+        "cuda-oxide": {
+          "sizes": [
+            "80000",
+            "500000",
+            "800000"
+          ],
+          "runs": 30,
+          "order": "blocked",
+          "profile": "release",
+          "started_at": "2026-08-14T22:04:53Z",
+          "finished_at": "2026-08-14T22:17:54Z"
+        },
+        "rust": {
+          "sizes": [
+            "80000"
+          ],
+          "runs": 30,
+          "order": "blocked",
+          "profile": "release",
+          "started_at": "2026-08-14T21:56:09Z",
+          "finished_at": "2026-08-14T22:21:31Z"
+        }
+      },
+      "impls": [
+        "cuda-oxide",
+        "rust",
+        "rust-gpu"
+      ]
+    },
+    "raytracer": {
+      "by_impl": {
+        "rust": {
+          "sizes": [
+            "10000"
+          ],
+          "runs": 30,
+          "order": "blocked",
+          "profile": "release",
+          "started_at": "2026-08-14T21:49:46Z",
+          "finished_at": "2026-08-14T22:03:30Z"
+        },
+        "rust-gpu": {
+          "sizes": [
+            "10000",
+            "15000",
+            "20000"
+          ],
+          "runs": 30,
+          "order": "blocked",
+          "profile": "release",
+          "started_at": "2026-08-14T21:49:46Z",
+          "finished_at": "2026-08-14T22:03:30Z"
+        },
+        "cuda-oxide": {
+          "sizes": [
+            "10000",
+            "15000",
+            "20000"
+          ],
+          "runs": 30,
+          "order": "blocked",
+          "profile": "release",
+          "started_at": "2026-08-14T21:49:46Z",
+          "finished_at": "2026-08-14T22:03:30Z"
+        }
+      },
+      "impls": [
+        "cuda-oxide",
+        "rust",
+        "rust-gpu"
+      ]
+    },
+    "ripple": {
+      "by_impl": {
+        "rust-gpu": {
+          "sizes": [
+            "10000",
+            "15000",
+            "20000"
+          ],
+          "runs": 1,
+          "order": "blocked",
+          "profile": "release",
+          "started_at": "2026-08-14T21:27:55Z",
+          "finished_at": "2026-08-14T21:28:21Z"
+        },
+        "cuda-oxide": {
+          "sizes": [
+            "10000",
+            "15000",
+            "20000"
+          ],
+          "runs": 1,
+          "order": "blocked",
+          "profile": "release",
+          "started_at": "2026-08-14T21:27:55Z",
+          "finished_at": "2026-08-14T21:28:21Z"
+        },
+        "rust": {
+          "sizes": [
+            "30000"
+          ],
+          "runs": 1,
+          "order": "blocked",
+          "profile": "release",
+          "started_at": "2026-08-14T21:30:49Z",
+          "finished_at": "2026-08-14T21:31:07Z"
+        }
+      },
+      "impls": [
+        "cuda-oxide",
+        "rust",
+        "rust-gpu"
+      ]
+    },
+    "nearest_neighbor": {
+      "by_impl": {
+        "rust-gpu": {
+          "sizes": [
+            "300000000"
+          ],
+          "runs": 1,
+          "order": "blocked",
+          "profile": "release",
+          "started_at": "2026-08-14T21:44:25Z",
+          "finished_at": "2026-08-14T21:44:33Z"
+        },
+        "cuda-oxide": {
+          "sizes": [
+            "300000000"
+          ],
+          "runs": 1,
+          "order": "blocked",
+          "profile": "release",
+          "started_at": "2026-08-14T21:44:25Z",
+          "finished_at": "2026-08-14T21:44:33Z"
+        },
+        "rust": {
+          "sizes": [
+            "300000000"
+          ],
+          "runs": 1,
+          "order": "blocked",
+          "profile": "release",
+          "started_at": "2026-08-14T21:44:05Z",
+          "finished_at": "2026-08-14T21:44:07Z"
         }
       },
       "impls": [

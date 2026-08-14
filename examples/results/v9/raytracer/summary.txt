@@ -1,0 +1,29 @@
+sources: /home/kranex/dev/rust-metaprogramming/examples/results/v9/raytracer/runs_cuda-oxide.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v9/raytracer/runs_rust-gpu.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v9/raytracer/runs_rust.csv
+versions: v9
+
+kernel              impl        size          n   mean_ms     stdev_ms  min_ms    max_ms    median_ms   
+--------------------------------------------------------------------------------------------------------
+raytracer           cuda-oxide  10000         30  1063.343    30.971    1036.475  1221.817  1057.816    
+raytracer           cuda-oxide  15000         30  2213.557    22.058    2176.712  2261.295  2211.800    
+raytracer           cuda-oxide  20000         30  3876.254    30.650    3802.133  3949.164  3872.155    
+raytracer           rust        10000         30  2971.127    17.007    2952.025  3028.843  2967.708    
+raytracer           rust-gpu    10000         30  1427.980    6.415     1417.297  1443.729  1427.168    
+raytracer           rust-gpu    15000         30  3028.596    17.701    2998.944  3064.612  3023.555    
+raytracer           rust-gpu    20000         30  5296.558    38.037    5237.145  5381.642  5286.313    
+
+rust-gpu vs cuda-oxide overhead
+kernel              size          rust-gpu_ms   cuda-oxide_ms overhead_ms overhead_%  slowdown_x  
+--------------------------------------------------------------------------------------------------
+raytracer           10000         1427.980      1063.343      364.637     34.3        1.34x       
+raytracer           15000         3028.596      2213.557      815.040     36.8        1.37x       
+raytracer           20000         5296.558      3876.254      1420.304    36.6        1.37x       
+
+rust vs rust-gpu overhead
+kernel              size          rust_ms       rust-gpu_ms   overhead_ms overhead_%  slowdown_x  
+--------------------------------------------------------------------------------------------------
+raytracer           10000         2971.127      1427.980      1543.147    108.1       2.08x       
+
+rust vs cuda-oxide overhead
+kernel              size          rust_ms       cuda-oxide_ms overhead_ms overhead_%  slowdown_x  
+--------------------------------------------------------------------------------------------------
+raytracer           10000         2971.127      1063.343      1907.784    179.4       2.79x       

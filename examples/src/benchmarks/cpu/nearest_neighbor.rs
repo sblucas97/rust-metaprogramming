@@ -16,15 +16,11 @@ pub fn run(num_records: usize) -> Vec<f32> {
 
     let mut distances = vec![0.0_f32; num_records];
 
-    
-    distances
-        .iter_mut()
-        .enumerate()
-        .for_each(|(i, distance)| {
-            let dlat = lat - locations[2 * i];
-            let dlng = lng - locations[2 * i + 1];
-            *distance = (dlat * dlat + dlng * dlng).sqrt();
-        });
+    for i in 0..num_records {
+        let dlat = lat - locations[2 * i];
+        let dlng = lng - locations[2 * i + 1];
+        distances[i] = (dlat * dlat + dlng * dlng).sqrt();
+    }
     let elapsed = start.elapsed();
     println!(
         "[nearest_neighbor_cpu] elapsed: {:.3} ms",

@@ -1,0 +1,23 @@
+sources: /home/kranex/dev/rust-metaprogramming/examples/results/v9/nearest_neighbor/runs_cuda-oxide.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v9/nearest_neighbor/runs_rust-gpu.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v9/nearest_neighbor/runs_rust.csv
+versions: v9
+
+kernel              impl        size          n   mean_ms     stdev_ms  min_ms    max_ms    median_ms   
+--------------------------------------------------------------------------------------------------------
+nearest_neighbor    cuda-oxide  300000000     1   1250.166    0.000     1250.166  1250.166  1250.166    
+nearest_neighbor    rust        300000000     1   779.130     0.000     779.130   779.130   779.130     
+nearest_neighbor    rust-gpu    300000000     1   1457.677    0.000     1457.677  1457.677  1457.677    
+
+rust-gpu vs cuda-oxide overhead
+kernel              size          rust-gpu_ms   cuda-oxide_ms overhead_ms overhead_%  slowdown_x  
+--------------------------------------------------------------------------------------------------
+nearest_neighbor    300000000     1457.677      1250.166      207.511     16.6        1.17x       
+
+rust vs rust-gpu overhead
+kernel              size          rust_ms       rust-gpu_ms   overhead_ms overhead_%  slowdown_x  
+--------------------------------------------------------------------------------------------------
+nearest_neighbor    300000000     779.130       1457.677      -678.547    -46.5       0.53x       
+
+rust vs cuda-oxide overhead
+kernel              size          rust_ms       cuda-oxide_ms overhead_ms overhead_%  slowdown_x  
+--------------------------------------------------------------------------------------------------
+nearest_neighbor    300000000     779.130       1250.166      -471.036    -37.7       0.62x       

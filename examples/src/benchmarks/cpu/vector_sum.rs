@@ -9,10 +9,9 @@ pub fn run(n: usize) -> Vec<f32> {
     let mut result = vec![0.0_f32; n];
 
     let start = Instant::now();
-    result
-        .iter_mut()
-        .enumerate()
-        .for_each(|(i, out)| *out = a[i] + b[i]);
+    for i in 0..n {
+        result[i] = a[i] + b[i];
+    }
     let elapsed = start.elapsed();
     println!(
         "[vector_sum_cpu] elapsed: {:.3} ms",

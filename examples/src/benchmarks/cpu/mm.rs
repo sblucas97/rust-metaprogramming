@@ -14,17 +14,15 @@ pub fn run(m: usize) -> Vec<f32> {
     let mut c = vec![0.0_f32; m * k];
 
     let start = Instant::now();
-    c.chunks_exact_mut(k)
-        .enumerate()
-        .for_each(|(row, c_row)| {
-            for (col, out) in c_row.iter_mut().enumerate() {
-                let mut sum = 0.0_f32;
-                for i in 0..n {
-                    sum += a[row * n + i] * b[i * k + col];
-                }
-                *out = sum;
+    for row in 0..m {
+        for col in 0..k {
+            let mut sum = 0.0_f32;
+            for i in 0..n {
+                sum += a[row * n + i] * b[i * k + col];
             }
-        });
+            c[row * k + col] = sum;
+        }
+    }
     let elapsed = start.elapsed();
     println!("[mm_cpu] elapsed: {:.3} ms", elapsed.as_secs_f64() * 1000.0);
 

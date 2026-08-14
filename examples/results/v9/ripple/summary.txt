@@ -1,0 +1,19 @@
+sources: /home/kranex/dev/rust-metaprogramming/examples/results/v9/ripple/runs_cuda-oxide.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v9/ripple/runs_rust-gpu.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v9/ripple/runs_rust.csv
+versions: v9
+
+kernel              impl        size          n   mean_ms     stdev_ms  min_ms    max_ms    median_ms   
+--------------------------------------------------------------------------------------------------------
+ripple              cuda-oxide  10000         1   1151.867    0.000     1151.867  1151.867  1151.867    
+ripple              cuda-oxide  15000         1   2385.803    0.000     2385.803  2385.803  2385.803    
+ripple              cuda-oxide  20000         1   4382.116    0.000     4382.116  4382.116  4382.116    
+ripple              rust        30000         1   17198.920   0.000     17198.920 17198.920 17198.920   
+ripple              rust-gpu    10000         1   1646.148    0.000     1646.148  1646.148  1646.148    
+ripple              rust-gpu    15000         1   3243.842    0.000     3243.842  3243.842  3243.842    
+ripple              rust-gpu    20000         1   5612.406    0.000     5612.406  5612.406  5612.406    
+
+rust-gpu vs cuda-oxide overhead
+kernel              size          rust-gpu_ms   cuda-oxide_ms overhead_ms overhead_%  slowdown_x  
+--------------------------------------------------------------------------------------------------
+ripple              10000         1646.148      1151.867      494.281     42.9        1.43x       
+ripple              15000         3243.842      2385.803      858.039     36.0        1.36x       
+ripple              20000         5612.406      4382.116      1230.290    28.1        1.28x       

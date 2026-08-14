@@ -1,0 +1,29 @@
+sources: /home/kranex/dev/rust-metaprogramming/examples/results/v9/nbodies/runs_cuda-oxide.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v9/nbodies/runs_rust-gpu.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v9/nbodies/runs_rust.csv
+versions: v9
+
+kernel              impl        size          n   mean_ms     stdev_ms  min_ms    max_ms    median_ms   
+--------------------------------------------------------------------------------------------------------
+nbodies             cuda-oxide  500000        30  3530.752    24.041    3498.207  3577.949  3526.320    
+nbodies             cuda-oxide  80000         30  231.414     10.947    222.523   279.875   229.132     
+nbodies             cuda-oxide  800000        30  8747.083    27.130    8706.455  8822.613  8740.194    
+nbodies             rust        80000         30  50747.272   266.900   50114.140 51146.677 50751.554   
+nbodies             rust-gpu    500000        30  3739.888    20.943    3692.812  3780.596  3737.087    
+nbodies             rust-gpu    80000         30  240.368     26.061    226.232   343.406   230.624     
+nbodies             rust-gpu    800000        30  8905.779    30.760    8867.392  8961.755  8892.148    
+
+rust-gpu vs cuda-oxide overhead
+kernel              size          rust-gpu_ms   cuda-oxide_ms overhead_ms overhead_%  slowdown_x  
+--------------------------------------------------------------------------------------------------
+nbodies             500000        3739.888      3530.752      209.136     5.9         1.06x       
+nbodies             80000         240.368       231.414       8.954       3.9         1.04x       
+nbodies             800000        8905.779      8747.083      158.696     1.8         1.02x       
+
+rust vs rust-gpu overhead
+kernel              size          rust_ms       rust-gpu_ms   overhead_ms overhead_%  slowdown_x  
+--------------------------------------------------------------------------------------------------
+nbodies             80000         50747.272     240.368       50506.904   21012.3     211.12x     
+
+rust vs cuda-oxide overhead
+kernel              size          rust_ms       cuda-oxide_ms overhead_ms overhead_%  slowdown_x  
+--------------------------------------------------------------------------------------------------
+nbodies             80000         50747.272     231.414       50515.858   21829.2     219.29x     

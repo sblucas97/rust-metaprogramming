@@ -1,4 +1,4 @@
-sources: /home/kranex/dev/rust-metaprogramming/examples/results/v9/julia/runs_cuda-oxide.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v9/julia/runs_rust-gpu.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v9/julia/runs_rust.csv
+sources: /home/kranex/dev/rust-metaprogramming/examples/results/v9/julia/runs_cuda-oxide.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v9/julia/runs_rust-gpu.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v9/julia/runs_rust.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v9/nbodies/runs_cuda-oxide.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v9/nbodies/runs_rust-gpu.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v9/nbodies/runs_rust.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v9/nearest_neighbor/runs_cuda-oxide.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v9/nearest_neighbor/runs_rust-gpu.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v9/nearest_neighbor/runs_rust.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v9/raytracer/runs_cuda-oxide.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v9/raytracer/runs_rust-gpu.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v9/raytracer/runs_rust.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v9/ripple/runs_rust-gpu.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v9/ripple/runs_rust.csv
 versions: v9
 
 kernel              impl        size          n   mean_ms     stdev_ms  min_ms    max_ms    median_ms   
@@ -6,10 +6,28 @@ kernel              impl        size          n   mean_ms     stdev_ms  min_ms  
 julia               cuda-oxide  10000         30  2394.039    20.845    2357.317  2439.120  2400.558    
 julia               cuda-oxide  12000         30  3497.589    62.620    3403.090  3641.789  3484.323    
 julia               cuda-oxide  16000         30  5988.729    116.328   5866.557  6547.272  5972.673    
-julia               rust        10000         30  51119.564   191.751   50840.465 51598.005 51139.899   
+julia               rust        10000         30  50853.023   53.769    50786.831 50966.581 50832.200   
 julia               rust-gpu    10000         30  2225.656    24.247    2208.777  2335.732  2218.548    
 julia               rust-gpu    12000         30  3158.614    19.872    3134.591  3237.149  3156.177    
 julia               rust-gpu    16000         30  5573.953    38.485    5494.518  5639.362  5569.149    
+nbodies             cuda-oxide  500000        30  3530.752    24.041    3498.207  3577.949  3526.320    
+nbodies             cuda-oxide  80000         30  231.414     10.947    222.523   279.875   229.132     
+nbodies             cuda-oxide  800000        30  8747.083    27.130    8706.455  8822.613  8740.194    
+nbodies             rust        80000         30  50747.272   266.900   50114.140 51146.677 50751.554   
+nbodies             rust-gpu    500000        30  3739.888    20.943    3692.812  3780.596  3737.087    
+nbodies             rust-gpu    80000         30  240.368     26.061    226.232   343.406   230.624     
+nbodies             rust-gpu    800000        30  8905.779    30.760    8867.392  8961.755  8892.148    
+nearest_neighbor    cuda-oxide  300000000     1   1250.166    0.000     1250.166  1250.166  1250.166    
+nearest_neighbor    rust        300000000     1   779.130     0.000     779.130   779.130   779.130     
+nearest_neighbor    rust-gpu    300000000     1   1457.677    0.000     1457.677  1457.677  1457.677    
+raytracer           cuda-oxide  10000         30  1063.343    30.971    1036.475  1221.817  1057.816    
+raytracer           cuda-oxide  15000         30  2213.557    22.058    2176.712  2261.295  2211.800    
+raytracer           cuda-oxide  20000         30  3876.254    30.650    3802.133  3949.164  3872.155    
+raytracer           rust        10000         30  2971.127    17.007    2952.025  3028.843  2967.708    
+raytracer           rust-gpu    10000         30  1427.980    6.415     1417.297  1443.729  1427.168    
+raytracer           rust-gpu    15000         30  3028.596    17.701    2998.944  3064.612  3023.555    
+raytracer           rust-gpu    20000         30  5296.558    38.037    5237.145  5381.642  5286.313    
+ripple              rust        30000         1   17198.920   0.000     17198.920 17198.920 17198.920   
 
 rust-gpu vs cuda-oxide overhead
 kernel              size          rust-gpu_ms   cuda-oxide_ms overhead_ms overhead_%  slowdown_x  
@@ -17,13 +35,26 @@ kernel              size          rust-gpu_ms   cuda-oxide_ms overhead_ms overhe
 julia               10000         2225.656      2394.039      -168.383    -7.0        0.93x       
 julia               12000         3158.614      3497.589      -338.976    -9.7        0.90x       
 julia               16000         5573.953      5988.729      -414.776    -6.9        0.93x       
+nbodies             500000        3739.888      3530.752      209.136     5.9         1.06x       
+nbodies             80000         240.368       231.414       8.954       3.9         1.04x       
+nbodies             800000        8905.779      8747.083      158.696     1.8         1.02x       
+nearest_neighbor    300000000     1457.677      1250.166      207.511     16.6        1.17x       
+raytracer           10000         1427.980      1063.343      364.637     34.3        1.34x       
+raytracer           15000         3028.596      2213.557      815.040     36.8        1.37x       
+raytracer           20000         5296.558      3876.254      1420.304    36.6        1.37x       
 
 rust vs rust-gpu overhead
 kernel              size          rust_ms       rust-gpu_ms   overhead_ms overhead_%  slowdown_x  
 --------------------------------------------------------------------------------------------------
-julia               10000         51119.564     2225.656      48893.908   2196.8      22.97x      
+julia               10000         50853.023     2225.656      48627.366   2184.9      22.85x      
+nbodies             80000         50747.272     240.368       50506.904   21012.3     211.12x     
+nearest_neighbor    300000000     779.130       1457.677      -678.547    -46.5       0.53x       
+raytracer           10000         2971.127      1427.980      1543.147    108.1       2.08x       
 
 rust vs cuda-oxide overhead
 kernel              size          rust_ms       cuda-oxide_ms overhead_ms overhead_%  slowdown_x  
 --------------------------------------------------------------------------------------------------
-julia               10000         51119.564     2394.039      48725.525   2035.3      21.35x      
+julia               10000         50853.023     2394.039      48458.984   2024.2      21.24x      
+nbodies             80000         50747.272     231.414       50515.858   21829.2     219.29x     
+nearest_neighbor    300000000     779.130       1250.166      -471.036    -37.7       0.62x       
+raytracer           10000         2971.127      1063.343      1907.784    179.4       2.79x       
