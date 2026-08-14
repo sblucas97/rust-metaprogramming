@@ -1,0 +1,5 @@
+# cuda-oxide's pinned nightly (its custom rustc backend links against exactly
+# this compiler's internals). Matches cuda-oxide's own rust-toolchain.toml.
+[toolchain]
+channel = "nightly-2026-04-03"
+components = ["rust-src", "rustc-dev", "llvm-tools"]

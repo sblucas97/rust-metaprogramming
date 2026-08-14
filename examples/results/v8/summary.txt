@@ -1,0 +1,12 @@
+sources: /home/kranex/dev/rust-metaprogramming/examples/results/v8/julia/runs_cuda-oxide.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v8/julia/runs_rust-gpu.csv
+versions: v8
+
+kernel              impl        size          n   mean_ms     stdev_ms  min_ms    max_ms    median_ms   
+--------------------------------------------------------------------------------------------------------
+julia               cuda-oxide  7168          2   1327.664    73.816    1275.468  1379.859  1327.664    
+julia               rust-gpu    7168          5   1244.094    55.635    1211.447  1342.460  1217.670    
+
+rust-gpu vs cuda-oxide overhead
+kernel              size          rust-gpu_ms   cuda-oxide_ms overhead_ms overhead_%  slowdown_x  
+--------------------------------------------------------------------------------------------------
+julia               7168          1244.094      1327.664      -83.569     -6.3        0.94x       

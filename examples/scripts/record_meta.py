@@ -6,13 +6,17 @@ toolchain versions) are collected here rather than in bash, and merged into any
 existing meta.json so several kernels can share one version directory.
 
 Usage:
-    record_meta.py <meta.json> --kernel julia --impls rust-gpu,cuda \
-        --runs 30 --sizes "7168 9216 11264" --profile release \
-        --started <iso8601> --finished <iso8601> \
-        [--impl-sizes 'rust=8000' --impl-sizes 'rust-gpu=8000 10000']
+    record_meta.py <meta.json> --kernel julia \
+        --impl-sizes 'rust-gpu=8000 10000' --impl-sizes 'rust=8000' \
+        --runs 30 --order blocked --profile release \
+        --started <iso8601> --finished <iso8601>
 
---sizes is the union swept for the kernel; --impl-sizes (repeatable) records
-which of them each impl actually ran, since impls need not share a size list.
+Each kernel entry is a per-impl merge: an --impl-sizes flag names an impl this
+batch ran, and only those impls' records are replaced -- a later cuda-oxide-only
+batch into the same version updates kernels.<kernel>.by_impl["cuda-oxide"] and
+leaves the rust / rust-gpu records (and their timestamps) intact. Entries
+written by older versions of this script (flat impls/sizes/runs fields) are
+migrated into by_impl on first touch.
 """
 import argparse
 import json
@@ -57,13 +61,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("meta_file")
     parser.add_argument("--kernel", required=True)
-    parser.add_argument("--impls", required=True, help="comma-separated impl labels")
     parser.add_argument("--runs", required=True, type=int)
-    parser.add_argument("--sizes", required=True, help="space-separated sizes")
     parser.add_argument(
         "--impl-sizes",
         action="append",
-        default=[],
+        required=True,
         metavar="IMPL=SIZES",
         help="sizes one impl ran, e.g. 'rust=1024 2048' (repeatable)",
     )
@@ -89,21 +91,42 @@ def main() -> None:
 
     sizes_by_impl = {}
     for spec in args.impl_sizes:
-        impl, _, impl_sizes = spec.partition("=")
-        if not impl or not _:
+        impl, sep, impl_sizes = spec.partition("=")
+        if not impl or not sep:
             raise SystemExit(f"--impl-sizes expects IMPL=SIZES, got {spec!r}")
         sizes_by_impl[impl] = impl_sizes.split()
 
-    meta.setdefault("kernels", {})[args.kernel] = {
-        "impls": args.impls.split(","),
-        "runs": args.runs,
-        "sizes": args.sizes.split(),
-        "sizes_by_impl": sizes_by_impl,
-        "order": args.order,
-        "profile": args.profile,
-        "started_at": args.started,
-        "finished_at": args.finished,
-    }
+    entry = meta.setdefault("kernels", {}).setdefault(args.kernel, {})
+    by_impl = entry.setdefault("by_impl", {})
+
+    # Migrate entries from the flat format (one record for the whole batch)
+    # into per-impl records, so untouched impls keep their provenance.
+    if "runs" in entry:
+        old_sizes_by_impl = entry.get("sizes_by_impl", {})
+        for impl in entry.get("impls", []):
+            by_impl.setdefault(impl, {
+                "sizes": old_sizes_by_impl.get(impl, entry.get("sizes", [])),
+                "runs": entry["runs"],
+                "order": entry.get("order", ""),
+                "profile": entry.get("profile", ""),
+                "started_at": entry.get("started_at", ""),
+                "finished_at": entry.get("finished_at", ""),
+            })
+        for stale in ("runs", "sizes", "sizes_by_impl", "order", "profile",
+                      "started_at", "finished_at"):
+            entry.pop(stale, None)
+
+    # Replace exactly the impls this batch ran; everything else stays put.
+    for impl, sizes in sizes_by_impl.items():
+        by_impl[impl] = {
+            "sizes": sizes,
+            "runs": args.runs,
+            "order": args.order,
+            "profile": args.profile,
+            "started_at": args.started,
+            "finished_at": args.finished,
+        }
+    entry["impls"] = sorted(by_impl)
 
     meta_path.write_text(json.dumps(meta, indent=2) + "\n")
 

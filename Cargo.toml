@@ -1,6 +1,9 @@
 [workspace]
 resolver = "3"
 members = ["compiler", "macros", "runtime", "guard", "examples"]
+# examples/oxide is a standalone crate (cuda-oxide's pinned nightly + custom
+# codegen backend); it is built with `cargo oxide build`, never as a member.
+exclude = ["examples/oxide"]
 
 # Shared dependency versions — each crate opts in with `{ workspace = true }`.
 # Keeping versions here prevents the drift we had before (libloading 0.7 vs 0.8,

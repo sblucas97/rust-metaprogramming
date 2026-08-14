@@ -1,0 +1,29 @@
+sources: /home/kranex/dev/rust-metaprogramming/examples/results/v9/julia/runs_cuda-oxide.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v9/julia/runs_rust-gpu.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v9/julia/runs_rust.csv
+versions: v9
+
+kernel              impl        size          n   mean_ms     stdev_ms  min_ms    max_ms    median_ms   
+--------------------------------------------------------------------------------------------------------
+julia               cuda-oxide  10000         30  2394.039    20.845    2357.317  2439.120  2400.558    
+julia               cuda-oxide  12000         30  3497.589    62.620    3403.090  3641.789  3484.323    
+julia               cuda-oxide  16000         30  5988.729    116.328   5866.557  6547.272  5972.673    
+julia               rust        10000         30  51119.564   191.751   50840.465 51598.005 51139.899   
+julia               rust-gpu    10000         30  2225.656    24.247    2208.777  2335.732  2218.548    
+julia               rust-gpu    12000         30  3158.614    19.872    3134.591  3237.149  3156.177    
+julia               rust-gpu    16000         30  5573.953    38.485    5494.518  5639.362  5569.149    
+
+rust-gpu vs cuda-oxide overhead
+kernel              size          rust-gpu_ms   cuda-oxide_ms overhead_ms overhead_%  slowdown_x  
+--------------------------------------------------------------------------------------------------
+julia               10000         2225.656      2394.039      -168.383    -7.0        0.93x       
+julia               12000         3158.614      3497.589      -338.976    -9.7        0.90x       
+julia               16000         5573.953      5988.729      -414.776    -6.9        0.93x       
+
+rust vs rust-gpu overhead
+kernel              size          rust_ms       rust-gpu_ms   overhead_ms overhead_%  slowdown_x  
+--------------------------------------------------------------------------------------------------
+julia               10000         51119.564     2225.656      48893.908   2196.8      22.97x      
+
+rust vs cuda-oxide overhead
+kernel              size          rust_ms       cuda-oxide_ms overhead_ms overhead_%  slowdown_x  
+--------------------------------------------------------------------------------------------------
+julia               10000         51119.564     2394.039      48725.525   2035.3      21.35x      

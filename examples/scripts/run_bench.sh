@@ -2,10 +2,11 @@
 # Run one kernel across any combination of implementations and record the
 # results into a versioned directory.
 #
-# Implementations:
-#   rust-gpu  the Rust DSL / custom compiler  (demo <kernel> <n>)
-#   rust      pure Rust on the CPU, sequential   (demo <kernel>_cpu <n>)
-#   cuda      hand-written .cu                (bin/<kernel> <n>)
+# Implementations (the full list lives in scripts/kernels.conf IMPLS):
+#   rust-gpu    the Rust DSL / custom compiler  (demo <kernel> <n>)
+#   rust        pure Rust on the CPU, sequential   (demo <kernel>_cpu <n>)
+#   cuda        hand-written .cu                (bin/<kernel> <n>)
+#   cuda-oxide  NVlabs cuda-oxide port          (../oxide, cargo oxide build)
 #
 # Usage:
 #   run_bench.sh -k <kernel> [options]
@@ -23,7 +24,12 @@
 #                           the repetition loop, so boost-clock and machine-load
 #                           drift over a long session hit each impl equally.
 #       --version <vN>      write into results/<vN> (created if absent), or
-#                           "latest" to follow the symlink; default: next free vN
+#                           "latest" to follow the symlink; default: next free vN.
+#                           Each impl gets its own results/<vN>/<kernel>/
+#                           runs_<impl>.csv, and a run replaces only the CSVs of
+#                           the impls it selects -- so a later
+#                           `--version v8 -i cuda-oxide` refreshes cuda-oxide
+#                           while v8's rust / rust-gpu measurements stay put.
 #       --profile <p>       release (default) or debug
 #       --arch <sm_XX>      nvcc target, default from kernels.conf
 #       --no-build          skip cargo/nvcc, use whatever is already built
@@ -105,15 +111,26 @@ IFS=',' read -ra impl_list <<< "$impls"
 has_cpu=0
 has_rust=0
 has_cuda=0
+has_oxide=0
 has_gpu=0
 for impl in "${impl_list[@]}"; do
+    impl_known=0
+    for known in "${IMPLS[@]}"; do [[ "$known" == "$impl" ]] && impl_known=1; done
+    [[ "$impl_known" -eq 1 ]] || die "unknown impl '$impl' (known: ${IMPLS[*]})"
     case "$impl" in
-        rust-gpu) has_rust=1; has_gpu=1 ;;
-        rust)     has_cpu=1; has_rust=1 ;;
-        cuda)     has_cuda=1; has_gpu=1 ;;
-        *)        die "unknown impl '$impl' (expected rust-gpu, rust or cuda)" ;;
+        rust-gpu)   has_rust=1; has_gpu=1 ;;
+        rust)       has_cpu=1; has_rust=1 ;;
+        cuda)       has_cuda=1; has_gpu=1 ;;
+        cuda-oxide) has_oxide=1; has_gpu=1 ;;
+        *)          has_gpu=1 ;;
     esac
 done
+
+if [[ "$has_oxide" -eq 1 ]]; then
+    ported=0
+    for k in "${CUDA_OXIDE_KERNELS[@]}"; do [[ "$k" == "$kernel" ]] && ported=1; done
+    [[ "$ported" -eq 1 ]] || die "kernel '$kernel' has no cuda-oxide port yet (ported: ${CUDA_OXIDE_KERNELS[*]})"
+fi
 
 selected() {
     local impl
@@ -226,17 +243,26 @@ fi
 
 VERSION_DIR="$RESULTS_DIR/$version"
 KERNEL_DIR="$VERSION_DIR/$kernel"
-CSV="$KERNEL_DIR/runs.csv"
+
+# One CSV per implementation, so re-running a single impl into an existing
+# version (e.g. a fresh cuda-oxide batch into v8) replaces only that impl's
+# measurements and leaves the stable rust / rust-gpu ones alone.
+impl_csv() { echo "$KERNEL_DIR/runs_$1.csv"; }
 
 DEMO_BIN="$REPO_ROOT/target/$profile/demo"
 CUDA_BIN="$EXAMPLES_DIR/bin/$kernel"
 CUDA_SRC="$EXAMPLES_DIR/src/benchmarks/cuda/$kernel.cu"
+OXIDE_DIR="$EXAMPLES_DIR/oxide"
+# Standalone cargo-oxide projects build into the crate's normal target dir;
+# the runner always builds them --release (forwarded cargo arg).
+OXIDE_BIN="$OXIDE_DIR/target/release/$kernel"
 
 build_cmd() {  # build_cmd <impl> <size> -> fills the `cmd` array
     case "$1" in
-        rust-gpu) cmd=("$DEMO_BIN" "$kernel" "$2") ;;
-        rust)     cmd=("$DEMO_BIN" "${kernel}_cpu" "$2") ;;
-        cuda)     cmd=("$CUDA_BIN" "$2") ;;
+        rust-gpu)   cmd=("$DEMO_BIN" "$kernel" "$2") ;;
+        rust)       cmd=("$DEMO_BIN" "${kernel}_cpu" "$2") ;;
+        cuda)       cmd=("$CUDA_BIN" "$2") ;;
+        cuda-oxide) cmd=("$OXIDE_BIN" "$2") ;;
     esac
 }
 dry_cmd() { build_cmd "$1" "$2"; echo "${cmd[*]}"; }
@@ -261,7 +287,7 @@ impls    : ${impl_list[*]}
 sizes    : ${all_sizes[*]}
 EOF
 for impl in "${impl_list[@]}"; do
-    printf '  %-9s: %s\n' "$impl" "${run_sizes[$impl]}"
+    printf '  %-11s: %s\n' "$impl" "${run_sizes[$impl]}"
 done
 cat <<EOF
 compared : ${shared_sizes[*]:-(none -- no size is run by two impls)}
@@ -310,14 +336,43 @@ if [[ "$do_build" -eq 1 ]]; then
             echo "CUDA $kernel binary is up to date."
         fi
     fi
+    if [[ "$has_oxide" -eq 1 ]]; then
+        command -v cargo-oxide >/dev/null || die "cargo-oxide not installed (see examples/oxide/Cargo.toml)"
+        echo "Building cuda-oxide $kernel binary..."
+        # shellcheck source=../oxide/oxide-env.sh
+        (source "$OXIDE_DIR/oxide-env.sh" && cd "$OXIDE_DIR" && cargo oxide build -- --release --bin "$kernel")
+    fi
 fi
 
 [[ "$has_rust" -eq 0 || -x "$DEMO_BIN" ]] || die "$DEMO_BIN not found (drop --no-build?)"
 [[ "$has_cuda" -eq 0 || -x "$CUDA_BIN" ]] || die "$CUDA_BIN not found (drop --no-build?)"
+[[ "$has_oxide" -eq 0 || -x "$OXIDE_BIN" ]] || die "$OXIDE_BIN not found (drop --no-build?)"
 
 # ----------------------------------------------------------------------- run
 mkdir -p "$KERNEL_DIR"
-rm -f "$CSV"
+
+# Versions recorded before the per-impl layout hold one combined runs.csv.
+# Split it so impls NOT selected this run keep their old measurements; a
+# per-impl file that already exists is fresher than the combined one and wins.
+if [[ -f "$KERNEL_DIR/runs.csv" ]]; then
+    echo "Migrating $KERNEL_DIR/runs.csv to per-impl CSVs..."
+    header="$(head -n 1 "$KERNEL_DIR/runs.csv")"
+    # Field 4 is impl; only the trailing quoted command field contains commas.
+    for old_impl in $(tail -n +2 "$KERNEL_DIR/runs.csv" | cut -d, -f4 | sort -u); do
+        target="$(impl_csv "$old_impl")"
+        [[ -f "$target" ]] && continue
+        { echo "$header"
+          awk -F, -v impl="$old_impl" 'NR > 1 && $4 == impl' "$KERNEL_DIR/runs.csv"
+        } > "$target"
+    done
+    rm "$KERNEL_DIR/runs.csv"
+fi
+
+# Replace semantics, scoped to this run's impls: each selected impl starts its
+# CSV fresh; impls not selected keep their existing file untouched.
+for impl in "${impl_list[@]}"; do
+    rm -f "$(impl_csv "$impl")"
+done
 
 started="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
@@ -327,7 +382,7 @@ if [[ "$order" == "blocked" ]]; then
     for impl in "${impl_list[@]}"; do
         for n in ${run_sizes[$impl]}; do
             build_cmd "$impl" "$n"
-            "$SCRIPT_DIR/bench_runs.sh" -o "$CSV" -k "$kernel" -i "$impl" \
+            "$SCRIPT_DIR/bench_runs.sh" -o "$(impl_csv "$impl")" -k "$kernel" -i "$impl" \
                 -s "$n" -n "$runs" -v "$version" -- "${cmd[@]}"
         done
     done
@@ -340,7 +395,7 @@ else
             for impl in "${impl_list[@]}"; do
                 runs_size "$impl" "$n" || continue
                 build_cmd "$impl" "$n"
-                "$SCRIPT_DIR/bench_runs.sh" -o "$CSV" -k "$kernel" -i "$impl" \
+                "$SCRIPT_DIR/bench_runs.sh" -o "$(impl_csv "$impl")" -k "$kernel" -i "$impl" \
                     -s "$n" -n 1 -v "$version" -- "${cmd[@]}"
             done
         done
@@ -355,7 +410,7 @@ for impl in "${impl_list[@]}"; do
 done
 
 "$SCRIPT_DIR/record_meta.py" "$VERSION_DIR/meta.json" \
-    --kernel "$kernel" --impls "$impls" --runs "$runs" --sizes "${all_sizes[*]}" \
+    --kernel "$kernel" --runs "$runs" \
     "${meta_args[@]}" --order "$order" \
     --profile "$profile" --started "$started" --finished "$finished"
 

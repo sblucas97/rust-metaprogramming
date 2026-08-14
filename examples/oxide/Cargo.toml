@@ -1,0 +1,23 @@
+# Benchmark kernels written against NVlabs cuda-oxide (Rust -> PTX via a
+# custom rustc backend), one binary per kernel so the bench scripts can invoke
+# them like the hand-written CUDA ones: target/cuda/release/<kernel> <size>.
+#
+# Build with `cargo oxide build` (see scripts/kernels.conf's cuda-oxide impl);
+# plain `cargo build` will NOT produce working kernels. Requires the pinned
+# nightly in rust-toolchain.toml and the environment in ./oxide-env.sh.
+[package]
+name = "oxide-benchmarks"
+version = "0.1.0"
+edition = "2024"
+default-run = "julia"
+
+# Standalone: deliberately not a member of the parent workspace (different
+# toolchain, different codegen backend).
+[workspace]
+
+[dependencies]
+# Pinned to the same revision cargo-oxide was installed from; the codegen
+# backend and these crates must come from one checkout.
+cuda-device = { git = "https://github.com/NVlabs/cuda-oxide.git", rev = "1f4d813719012d384f2db12b88efc9314c8bf50c" }
+cuda-core = { git = "https://github.com/NVlabs/cuda-oxide.git", rev = "1f4d813719012d384f2db12b88efc9314c8bf50c" }
+cuda-host = { git = "https://github.com/NVlabs/cuda-oxide.git", rev = "1f4d813719012d384f2db12b88efc9314c8bf50c" }

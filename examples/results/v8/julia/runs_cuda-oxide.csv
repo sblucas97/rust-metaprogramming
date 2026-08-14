@@ -1,0 +1,3 @@
+timestamp,version,kernel,impl,size,run_index,elapsed_ms,command
+2026-08-14T19:38:48Z,v8,julia,cuda-oxide,7168,1,1379.859,"/home/kranex/dev/rust-metaprogramming/examples/oxide/target/release/julia 7168"
+2026-08-14T19:38:50Z,v8,julia,cuda-oxide,7168,2,1275.468,"/home/kranex/dev/rust-metaprogramming/examples/oxide/target/release/julia 7168"

@@ -1,0 +1,6 @@
+timestamp,version,kernel,impl,size,run_index,elapsed_ms,command
+2026-08-14T19:26:08Z,v8,julia,rust-gpu,7168,1,1342.460,"/home/kranex/dev/rust-metaprogramming/target/release/demo julia 7168"
+2026-08-14T19:26:09Z,v8,julia,rust-gpu,7168,2,1233.647,"/home/kranex/dev/rust-metaprogramming/target/release/demo julia 7168"
+2026-08-14T19:26:10Z,v8,julia,rust-gpu,7168,3,1217.670,"/home/kranex/dev/rust-metaprogramming/target/release/demo julia 7168"
+2026-08-14T19:26:12Z,v8,julia,rust-gpu,7168,4,1211.447,"/home/kranex/dev/rust-metaprogramming/target/release/demo julia 7168"
+2026-08-14T19:26:13Z,v8,julia,rust-gpu,7168,5,1215.247,"/home/kranex/dev/rust-metaprogramming/target/release/demo julia 7168"

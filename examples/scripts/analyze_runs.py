@@ -4,38 +4,64 @@
 Prints mean/stdev/min/max/median grouped by (kernel, impl, size), then a
 comparison table for every pair of implementations that both have rows for
 the same (kernel, size), showing how much slower/faster the first is than
-the second. Known impls: "rust-gpu" (the Rust DSL / custom compiler),
-"rust" (pure Rust on the CPU, sequential), "cuda" (hand-written CUDA).
+the second. Impl labels are open-ended (whatever the runner recorded);
+well-known ones: "rust-gpu" (the Rust DSL / custom compiler), "rust" (pure
+Rust on the CPU, sequential), "cuda" (hand-written CUDA), "cuda-oxide"
+(NVlabs cuda-oxide). Which side of a table an impl lands on comes from
+IMPL_RANK below.
 
-Accepts CSV files or directories. A directory is searched recursively for
-`runs.csv` (the versioned layout written by run_bench.sh) and `*_runs.csv`
-(the older flat layout), so both of these work:
+Accepts CSV files, directories, or bare version names. A bare version ("v8",
+or "latest") resolves to <this script>/../results/<version>. A directory is
+searched recursively for `runs_<impl>.csv` (the per-impl layout written by
+run_bench.sh), `runs.csv` (the earlier combined layout), and `*_runs.csv`
+(the oldest flat layout), so all of these work:
 
-    analyze_runs.py results/latest
+    analyze_runs.py v8
+    analyze_runs.py latest -i rust-gpu -i cuda-oxide
     analyze_runs.py results/v3/julia/runs.csv results/v2/julia/runs.csv
 
 Usage:
-    analyze_runs.py <path> [<path> ...] [-k KERNEL] [-i IMPL] [-V VERSION] [-o OUT]
+    analyze_runs.py <path|version> [...] [-k KERNEL] [-i IMPL] [-V VERSION] [-o OUT]
 
 -k/-i/-V can each be repeated to restrict the report (default: everything).
 -o/--out saves the same report to a file as well as printing it to stdout.
 """
 import argparse
 import csv
+import re
 import statistics
+import sys
 from collections import defaultdict
 from pathlib import Path
 
+RESULTS_DIR = Path(__file__).resolve().parent.parent / "results"
+
 
 def expand_paths(paths: list[str]) -> list[Path]:
-    """Resolve the given files/directories to a sorted list of CSV files."""
+    """Resolve files, directories, or bare versions to a list of CSV files."""
     found: list[Path] = []
     for raw in paths:
         path = Path(raw)
+        # Bare version name: only when it isn't also a real file/dir here.
+        if not path.exists() and (re.fullmatch(r"v\d+", raw) or raw == "latest"):
+            path = RESULTS_DIR / raw
+            if not path.is_dir():
+                raise SystemExit(f"No results for version '{raw}' (looked in {path})")
         if path.is_dir():
-            matches = sorted(path.rglob("runs.csv")) + sorted(path.rglob("*_runs.csv"))
+            per_impl = sorted(path.rglob("runs_*.csv"))
+            combined = sorted(path.rglob("runs.csv"))
+            # A combined runs.csv next to per-impl files is a leftover superseded
+            # by them (run_bench.sh migrates it away); reading both would count
+            # the migrated impls twice.
+            kept: list[Path] = []
+            for csv_path in combined:
+                if any(p.parent == csv_path.parent for p in per_impl):
+                    print(f"warning: skipping {csv_path} (per-impl CSVs beside it)", file=sys.stderr)
+                else:
+                    kept.append(csv_path)
+            matches = per_impl + kept + sorted(path.rglob("*_runs.csv"))
             if not matches:
-                raise SystemExit(f"No runs.csv found under {path}")
+                raise SystemExit(f"No runs CSVs found under {path}")
             found.extend(matches)
         elif path.is_file():
             found.append(path)
@@ -82,7 +108,7 @@ def build_report(
     lines.append("")
 
     cols = ["kernel", "impl", "size", "n", "mean_ms", "stdev_ms", "min_ms", "max_ms", "median_ms"]
-    widths = [20, 10, 14, 4, 12, 10, 10, 10, 12]
+    widths = [20, 12, 14, 4, 12, 10, 10, 10, 12]
     lines.append("".join(f"{c:<{w}}" for c, w in zip(cols, widths)))
     lines.append("-" * len(lines[-1]))
 
@@ -100,9 +126,26 @@ def build_report(
         lines.append("".join(f"{v:<{w}}" for v, w in zip(row, widths)))
         means.setdefault((kernel, size), {})[impl] = mean
 
-    # One comparison table per pair of impls that co-occur for a (kernel, size).
-    # Ordered so each table reads "how much slower is A than the baseline B".
-    impl_pairs = [("rust-gpu", "cuda"), ("rust", "rust-gpu"), ("rust", "cuda")]
+    # One comparison table per pair of impls that co-occur for a (kernel, size),
+    # ordered so each table reads "how much slower is A than the baseline B".
+    # Lower rank = more of a baseline: hand-written CUDA is the reference for
+    # everything, new technologies (cuda-oxide, ...) default to sitting between
+    # it and rust-gpu so rust-gpu is always the side being measured, and the
+    # sequential CPU impl is measured against everyone.
+    IMPL_RANK = {"cuda": 0, "rust-gpu": 2, "rust": 3}
+    DEFAULT_RANK = 1
+
+    def rank(impl: str) -> int:
+        return IMPL_RANK.get(impl, DEFAULT_RANK)
+
+    seen_impls = sorted({impl for v in means.values() for impl in v})
+    impl_pairs = [
+        (a, b)
+        for a in seen_impls
+        for b in seen_impls
+        if a != b and (rank(a), a) > (rank(b), b)
+    ]
+    impl_pairs.sort(key=lambda p: (rank(p[0]), -rank(p[1]), p[0], p[1]))
     for a, b in impl_pairs:
         comparisons = {k: v for k, v in means.items() if a in v and b in v}
         if not comparisons:

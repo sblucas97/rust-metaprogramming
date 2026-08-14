@@ -57,13 +57,14 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ -z "$csv_file" || -z "$kernel" || -z "$size" || $# -eq 0 ]] && usage
-case "$impl" in
-    rust-gpu|rust|cuda) ;;
-    *)
-        echo "Error: -i must be 'rust-gpu', 'rust' or 'cuda' (got '${impl}')" >&2
-        usage
-        ;;
-esac
+# Impl labels are open-ended (rust-gpu, rust, cuda, cuda-oxide, ...): the
+# label is just the CSV column analyze_runs.py groups on. run_bench.sh
+# validates against the known set in kernels.conf; direct calls may use
+# anything non-empty.
+if [[ -z "$impl" ]]; then
+    echo "Error: -i must name the implementation label (e.g. rust-gpu, rust, cuda, cuda-oxide)" >&2
+    usage
+fi
 
 if [[ ! -f "$csv_file" ]]; then
     echo "timestamp,version,kernel,impl,size,run_index,elapsed_ms,command" > "$csv_file"

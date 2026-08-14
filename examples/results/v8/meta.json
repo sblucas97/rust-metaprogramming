@@ -1,0 +1,46 @@
+{
+  "version": "v8",
+  "environment": {
+    "git_commit": "2c5404344bc72f701bd97a20bf9606743edc8233",
+    "git_dirty": true,
+    "hostname": "kranex-B550M-AORUS-ELITE",
+    "kernel_release": "7.0.0-28-generic",
+    "cpu_count": 16,
+    "gpu": "NVIDIA GeForce RTX 3070, 595.84, 8192 MiB",
+    "nvcc": "Build cuda_12.0.r12.0/compiler.32267302_0",
+    "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
+    "cargo": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)"
+  },
+  "started_at": "2026-08-14T19:26:06Z",
+  "finished_at": "2026-08-14T19:38:50Z",
+  "kernels": {
+    "julia": {
+      "impls": [
+        "cuda-oxide",
+        "rust-gpu"
+      ],
+      "by_impl": {
+        "rust-gpu": {
+          "sizes": [
+            "7168"
+          ],
+          "runs": 5,
+          "order": "blocked",
+          "profile": "release",
+          "started_at": "2026-08-14T19:26:06Z",
+          "finished_at": "2026-08-14T19:26:22Z"
+        },
+        "cuda-oxide": {
+          "sizes": [
+            "7168"
+          ],
+          "runs": 2,
+          "order": "blocked",
+          "profile": "release",
+          "started_at": "2026-08-14T19:38:46Z",
+          "finished_at": "2026-08-14T19:38:50Z"
+        }
+      }
+    }
+  }
+}
