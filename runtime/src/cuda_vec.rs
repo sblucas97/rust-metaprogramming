@@ -1,6 +1,27 @@
 use std::ops::IndexMut;
 use crate::ffi;
 
+/// Element types that may live in a `CudaVec`.
+///
+/// Sealed marker: only plain numeric scalars whose bytes can be memcpy'd
+/// between host and device verbatim. Deliberately not implemented for `bool`
+/// (not a DSL vector element) or arbitrary `T` (which could smuggle heap
+/// pointers onto the GPU).
+pub trait DeviceScalar: sealed::Sealed + Copy + 'static {}
+
+mod sealed {
+    pub trait Sealed {}
+}
+
+macro_rules! impl_device_scalar {
+    ($($t:ty),*) => {$(
+        impl sealed::Sealed for $t {}
+        impl DeviceScalar for $t {}
+    )*};
+}
+
+impl_device_scalar!(u8, u16, u32, u64, i8, i16, i32, i64, f32, f64);
+
 #[derive(Debug, Clone)]
 pub struct CudaVec<T> {
     data: Vec<T>,
@@ -33,53 +54,33 @@ impl<T> std::ops::Index<u64> for CudaVec<T> {
     }
 }
 
-impl<T> CudaVec<T> {
+// Constructors and transfers require a device-copyable scalar; everything that
+// only touches the host copy stays available for any T.
+impl<T: DeviceScalar> CudaVec<T> {
     pub fn new_empty(data: Vec<T>, size: usize) -> Self {
-
-        let vec_type = std::any::type_name::<T>();
-        match vec_type {
-            "f32" => {
-                let mut device_ptr: *mut f32 = std::ptr::null_mut();           
-                ffi::cuda_allocate(&mut device_ptr as *mut *mut f32, size);
-                Self {
-                    data: data,
-                    device_ptr: device_ptr as *mut T
-                }
-            }
-
-            _ => {
-                panic!("Error: Type {} not supported", vec_type);
-            }
-        }
+        let mut device_ptr: *mut T = std::ptr::null_mut();
+        ffi::cuda_allocate(&mut device_ptr, size);
+        Self { data, device_ptr }
     }
 
     pub fn new(data: Vec<T>) -> Self {
-
-        let vec_type = std::any::type_name::<T>();
-        match vec_type {
-            "f32" => {
-                let mut device_ptr: *mut f32 = std::ptr::null_mut();           
-                ffi::cuda_allocate(&mut device_ptr as *mut *mut f32, data.len());
-                if !data.is_empty() {
-                    ffi::cuda_copy_to_device(
-                        device_ptr, 
-                        data.as_ptr() as *mut f32,
-                        data.len()
-                    );
-                }
-
-                Self {
-                    data: data,
-                    device_ptr: device_ptr as *mut T
-                }
-            }
-
-            _ => {
-                panic!("Error: Type {} not supported", vec_type);
-            }
+        let mut device_ptr: *mut T = std::ptr::null_mut();
+        ffi::cuda_allocate(&mut device_ptr, data.len());
+        if !data.is_empty() {
+            ffi::cuda_copy_to_device(device_ptr, data.as_ptr(), data.len());
         }
+        Self { data, device_ptr }
     }
 
+    pub fn copy_from_device(&mut self) {
+        if self.data.is_empty() {
+            return;
+        }
+        ffi::cuda_copy_to_host(self.data.as_mut_ptr(), self.device_ptr, self.data.len());
+    }
+}
+
+impl<T> CudaVec<T> {
     pub fn len(&self) -> usize {
         self.data.len()
     }
@@ -90,20 +91,6 @@ impl<T> CudaVec<T> {
 
     pub fn get_device_ptr(&self) -> *mut T {
         self.device_ptr
-    }
-
-    pub fn copy_from_device(&mut self) {
-        let vec_type = std::any::type_name::<T>();
-        match vec_type {
-            "f32" => {
-                ffi::cuda_copy_to_host(
-                    self.data.as_mut_ptr() as *mut f32,
-                    self.get_device_ptr() as *mut f32,
-                    self.data.len()
-                );
-            }
-            _ => panic!("copy_from_device: type {} not supported", vec_type),
-        }
     }
 
     pub fn as_slice(&self) -> &[T] {
@@ -117,22 +104,7 @@ impl<T> CudaVec<T> {
 
 impl<T> Drop for CudaVec<T> {
     fn drop(&mut self) {
-        if self.device_ptr.is_null() {
-            eprintln!(
-                "CudaVec<{}>: device pointer was null, nothing to free",
-                std::any::type_name::<T>()
-            );
-            return;
-        }
-
-        let vec_type = std::any::type_name::<T>();
-        match vec_type {
-            "f32" => {
-                ffi::cuda_free(self.device_ptr as *mut f32);
-            }
-            _ => {
-                eprintln!("CudaVec<{}>: no GPU cleanup needed on drop", vec_type);
-            }
-        }
+        // Null (zero-length vec) is fine: cudaFree(nullptr) is a no-op.
+        ffi::cuda_free(self.device_ptr);
     }
 }

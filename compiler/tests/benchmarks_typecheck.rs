@@ -213,6 +213,24 @@ fn nbodies_integrate_kernel_typechecks() {
     });
 }
 
+// Not (yet) a real benchmark: pins the extended scalar set working end-to-end
+// from surface syntax -- f64 vectors, signed locals, negation, mixed-rank
+// widening -- through lowering and the type checker.
+#[test]
+fn extended_scalar_kernel_typechecks() {
+    assert_typechecks(syn::parse_quote! {
+        pub fn axpy_f64(a: &CudaVec<f64>, out: &mut CudaVec<f64>, n: u64) {
+            let idx: u64 = blockIdx.x * blockDim.x + threadIdx.x;
+            if idx < n {
+                let sign: i32 = -1;
+                let wide: i64 = sign as i64;
+                let scale: f64 = 2.5f64 * wide as f64;
+                out[idx] = a[idx] * scale;
+            }
+        }
+    });
+}
+
 // The old examples/src/benchmarks/tc.rs smoke test: deliberately ill-typed,
 // must be rejected at the offending let.
 #[test]

@@ -1,0 +1,18 @@
+sources: /home/kranex/dev/rust-metaprogramming/examples/results/v5/nearest_neighbor/runs.csv
+versions: v5
+
+kernel              impl      size          n   mean_ms     stdev_ms  min_ms    max_ms    median_ms   
+------------------------------------------------------------------------------------------------------
+nearest_neighbor    rust      100000000     10  59.294      3.378     56.009    68.276    58.413      
+nearest_neighbor    rust      200000000     10  114.823     1.685     112.724   117.386   114.661     
+nearest_neighbor    rust      300000000     10  171.301     1.856     167.764   174.258   171.731     
+nearest_neighbor    rust-gpu  100000000     10  610.816     44.588    549.028   675.708   630.116     
+nearest_neighbor    rust-gpu  200000000     10  1048.489    46.920    963.440   1102.704  1064.262    
+nearest_neighbor    rust-gpu  300000000     10  1495.386    48.694    1446.061  1602.436  1477.583    
+
+rust vs rust-gpu overhead
+kernel              size          rust_ms       rust-gpu_ms   overhead_ms overhead_%  slowdown_x  
+--------------------------------------------------------------------------------------------------
+nearest_neighbor    100000000     59.294        610.816       -551.522    -90.3       0.10x       
+nearest_neighbor    200000000     114.823       1048.489      -933.666    -89.0       0.11x       
+nearest_neighbor    300000000     171.301       1495.386      -1324.085   -88.5       0.11x       

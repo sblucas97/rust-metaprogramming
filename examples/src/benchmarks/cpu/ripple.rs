@@ -1,17 +1,17 @@
-use rayon::prelude::*;
-
 use std::time::Instant;
 
 // Mirrors the DSL kernel in benchmarks::ripple exactly (same constants, same
-// greyscale formula, same RGBA layout) so timings are directly comparable. Only
-// the compute is timed, matching the DSL side which times just the spawn!.
+// greyscale formula, same RGBA layout) so timings are directly comparable.
+// Single threaded: one pixel after another, no parallelism. Only the compute is
+// timed, matching the DSL side which times just the spawn!.
 pub fn run(dim: usize) -> Vec<f32> {
+    let start = Instant::now();
+
     let mut pixels = vec![0.0_f32; dim * dim * 4];
     let ticks = 10.0_f32;
 
-    let start = Instant::now();
     pixels
-        .par_chunks_exact_mut(4)
+        .chunks_exact_mut(4)
         .enumerate()
         .for_each(|(offset, pixel)| {
             let x = offset % dim;

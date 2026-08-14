@@ -94,7 +94,13 @@ fn type_check_expr(
     expected: Option<&Type>,
 ) -> Result<Type, TypeError> {
     match &expr.kind {
-        ExprKind::LiteralF32(_) => Ok(Type::F32),
+        // Γ ⊢ x.y : τ   if τ is the expected float type, defaulting to F32
+        ExprKind::LiteralFloat(_) => match expected {
+            Some(ty) if ty.is_float() => Ok(ty.clone()),
+            _ => Ok(Type::F32),
+        },
+
+        ExprKind::LiteralTypedFloat(_, ty) => Ok(ty.clone()),
 
         // Γ ⊢ n : τ   if τ is the expected integer type, defaulting to U64
         ExprKind::LiteralInt(_) => match expected {
@@ -152,16 +158,20 @@ fn type_check_expr(
             }
         }
 
-        // Γ ⊢ e : F32  ⟹  -e : F32   (no signed integers in the DSL)
+        // Γ ⊢ e : τ   τ float or signed integer  ⟹  -e : τ
         ExprKind::Unary { op: UnOp::Neg, expr: inner } => {
-            let ty = type_check_expr(inner, ctx, Some(&Type::F32))?;
-            if ty != Type::F32 {
+            // Only propagate an expectation the operand could legally have,
+            // so `-lit` still defaults sensibly under e.g. a U64 expectation.
+            let operand_expected =
+                expected.filter(|ty| ty.is_float() || ty.is_signed_int());
+            let ty = type_check_expr(inner, ctx, operand_expected)?;
+            if !(ty.is_float() || ty.is_signed_int()) {
                 return Err(TypeError::TypeMismatch {
-                    expected: "F32".into(),
+                    expected: "float or signed integer".into(),
                     found: format!("-{ty:?}"),
                 });
             }
-            Ok(Type::F32)
+            Ok(ty)
         }
 
         // Γ ⊢ e : τ₁   τ₁, τ₂ numeric  ⟹  e as τ₂ : τ₂
@@ -213,13 +223,17 @@ fn type_check_expr(
 
         // Γ ⊢ size_expr : U64
         // ---------------------------
-        // Γ ⊢ CudaVec(size_expr) : CudaVec<F32>
+        // Γ ⊢ CudaVec(size_expr) : CudaVec<T>   where T comes from the expected
+        // type (e.g. a let annotation), defaulting to F32 when there is none.
         ExprKind::CudaVec(size_expr) => {
             let ty = type_check_expr(size_expr, ctx, Some(&Type::U64))?;
+            if !coerces_to(&ty, &Type::U64) {
+                return Err(TypeError::InvalidCudaVecSize);
+            }
 
-            match ty {
-                Type::U64 => Ok(Type::CudaVec(Box::new(Type::F32))),
-                _ => Err(TypeError::InvalidCudaVecSize)
+            match expected {
+                Some(Type::CudaVec(element)) => Ok(Type::CudaVec(element.clone())),
+                _ => Ok(Type::CudaVec(Box::new(Type::F32))),
             }
         }
 
@@ -312,12 +326,25 @@ fn type_check_expr(
     }
 }
 
-// `found` is usable where `expected` is required: equal types, or U32 → U64 widening.
+// `found` is usable where `expected` is required: equal types, or integer
+// widening within the same signedness (u8 -> u16 -> u32 -> u64, i8 -> ... ->
+// i64). No implicit float widening, signed <-> unsigned, or int -> float --
+// those require an explicit `as` cast.
 fn coerces_to(found: &Type, expected: &Type) -> bool {
-    found == expected || (*found == Type::U32 && *expected == Type::U64)
+    if found == expected {
+        return true;
+    }
+    let same_signedness = (found.is_unsigned_int() && expected.is_unsigned_int())
+        || (found.is_signed_int() && expected.is_signed_int());
+    match (same_signedness, found.int_rank(), expected.int_rank()) {
+        (true, Some(from), Some(to)) => from < to,
+        _ => false,
+    }
 }
 
-// Same numeric type, or widened to U64 when U32 and U64 meet.
+// Equal numeric types unify to themselves; two integers of the same
+// signedness unify to the wider one. Everything else (mixed signedness,
+// mixed float widths, int + float) needs an explicit cast.
 fn unify_numeric(lhs: &Type, rhs: &Type) -> Option<Type> {
     if !lhs.is_numeric() || !rhs.is_numeric() {
         return None;
@@ -325,8 +352,11 @@ fn unify_numeric(lhs: &Type, rhs: &Type) -> Option<Type> {
     if lhs == rhs {
         return Some(lhs.clone());
     }
-    if lhs.is_integer() && rhs.is_integer() {
-        return Some(Type::U64);
+    if coerces_to(lhs, rhs) {
+        return Some(rhs.clone());
+    }
+    if coerces_to(rhs, lhs) {
+        return Some(lhs.clone());
     }
     None
 }
@@ -514,6 +544,75 @@ mod tests {
         assert_eq!(result, Ok(Type::Unit));
     }
 
+    #[test]
+    fn signed_int_literal_and_negation() {
+        let result = check(quote! {
+            fn f() {
+                let x: i32 = -5;
+                let y: i64 = -5i64;
+            }
+        });
+        assert_eq!(result, Ok(Type::Unit));
+    }
+
+    #[test]
+    fn f64_literals_and_arithmetic() {
+        let result = check(quote! {
+            fn f() {
+                let x: f64 = 2.5f64;
+                let y: f64 = x * 2.0;
+                let z: f64 = -y;
+            }
+        });
+        assert_eq!(result, Ok(Type::Unit));
+    }
+
+    #[test]
+    fn unsigned_widening_across_ranks() {
+        let result = check(quote! {
+            fn f(small: u8, big: u64) {
+                let x: u64 = small + big;
+                let y: u32 = 200u8 as u32;
+            }
+        });
+        assert_eq!(result, Ok(Type::Unit));
+    }
+
+    #[test]
+    fn signed_widening_across_ranks() {
+        let result = check(quote! {
+            fn f(a: i16, b: i64) {
+                let x: i64 = a + b;
+            }
+        });
+        assert_eq!(result, Ok(Type::Unit));
+    }
+
+    #[test]
+    fn casts_across_the_new_scalar_set() {
+        let result = check(quote! {
+            fn f(n: u64) {
+                let a: f64 = n as f64;
+                let b: i8 = a as i8;
+                let c: u16 = b as u16;
+            }
+        });
+        assert_eq!(result, Ok(Type::Unit));
+    }
+
+    #[test]
+    fn cudavec_params_of_new_element_types() {
+        let result = check(quote! {
+            fn f(a: &CudaVec<f64>, out: &mut CudaVec<i32>, n: u64) {
+                let idx: u64 = blockIdx.x * blockDim.x + threadIdx.x;
+                if idx < n {
+                    out[idx] = a[idx] as i32;
+                }
+            }
+        });
+        assert_eq!(result, Ok(Type::Unit));
+    }
+
     // ---- negative ----
 
     #[test]
@@ -650,6 +749,84 @@ mod tests {
             }
         });
         assert_eq!(result, Err(TypeError::UnknownVariable("x".into())));
+    }
+
+    #[test]
+    fn negating_unsigned_fails() {
+        let result = check(quote! {
+            fn f(n: u32) {
+                let x: u32 = -n;
+            }
+        });
+        assert!(matches!(result, Err(TypeError::TypeMismatch { .. })));
+    }
+
+    #[test]
+    fn mixed_signedness_addition_fails() {
+        let result = check(quote! {
+            fn f(a: u32, b: i32) {
+                let x: i32 = a + b;
+            }
+        });
+        assert!(matches!(result, Err(TypeError::TypeMismatch { .. })));
+    }
+
+    #[test]
+    fn no_implicit_float_widening() {
+        let result = check(quote! {
+            fn f(x: f32) {
+                let y: f64 = x;
+            }
+        });
+        assert!(matches!(result, Err(TypeError::LetTypeMismatch { .. })));
+    }
+
+    #[test]
+    fn signed_does_not_coerce_to_unsigned() {
+        let result = check(quote! {
+            fn f(a: i32) {
+                let x: u64 = a;
+            }
+        });
+        assert!(matches!(result, Err(TypeError::LetTypeMismatch { .. })));
+    }
+
+    #[test]
+    fn cudavec_of_bool_fails_to_lower() {
+        let item: syn::ItemFn = syn::parse2(quote! {
+            fn f(a: &CudaVec<bool>) {}
+        })
+        .expect("test source must parse");
+        let err = crate::lower::lower_fn(&item).unwrap_err();
+        assert!(err.contains("CudaVec<Bool>"), "unexpected error: {err}");
+    }
+
+    // ---- CudaVec constructor expression (no surface syntax yet, so the AST
+    // ---- is built directly) ----
+
+    #[test]
+    fn cudavec_constructor_takes_element_type_from_expectation() {
+        use crate::ast::{Expr, ExprKind, NodeId};
+
+        let size = Expr { id: NodeId(0), kind: ExprKind::LiteralInt(16) };
+        let ctor = Expr { id: NodeId(1), kind: ExprKind::CudaVec(Box::new(size)) };
+        let expected = Type::CudaVec(Box::new(Type::F64));
+
+        let mut ctx = Context::new();
+        let ty = super::type_check_expr(&ctor, &mut ctx, Some(&expected));
+        assert_eq!(ty, Ok(expected));
+    }
+
+    #[test]
+    fn cudavec_constructor_defaults_to_f32() {
+        use crate::ast::{Expr, ExprKind, NodeId};
+
+        let size = Expr { id: NodeId(0), kind: ExprKind::LiteralInt(16) };
+        let ctor = Expr { id: NodeId(1), kind: ExprKind::CudaVec(Box::new(size)) };
+
+        let mut ctx = Context::new();
+        let ty = super::type_check_expr(&ctor, &mut ctx, None);
+        assert_eq!(ty, Ok(Type::CudaVec(Box::new(Type::F32))));
     }
 
     #[test]

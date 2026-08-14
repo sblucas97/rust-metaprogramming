@@ -103,11 +103,16 @@ pub enum UnOp {
 
 #[derive(Debug, Clone)]
 pub enum ExprKind {
-    LiteralF32(f32),
+    // Unsuffixed float literal: polymorphic, checks against an expected float
+    // type when one is known, defaults to F32. Stored as f64 so f64-typed
+    // literals lose no precision.
+    LiteralFloat(f64),
+    // Suffixed float literal (0.0f32 / 0.0f64): fixed type.
+    LiteralTypedFloat(f64, Type),
     // Unsuffixed integer literal: polymorphic, checks against an expected
     // integer type when one is known, defaults to U64.
     LiteralInt(u64),
-    // Suffixed integer literal (0u32 / 0u64): fixed type.
+    // Suffixed integer literal (0u32 / 0i64 / ...): fixed type.
     LiteralTypedInt(u64, Type),
 
     CudaVec(Box<Expr>),

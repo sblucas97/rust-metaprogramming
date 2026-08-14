@@ -23,12 +23,13 @@ pub(crate) fn generate_bodies(n: usize) -> Vec<f32> {
 
 pub fn run(n: usize) -> CudaVec<f32> {
     let bodies = generate_bodies(n);
-    let mut p: CudaVec<f32> = CudaVec::new(bodies);
 
     let threads_per_block: u32 = 128;
     let num_blocks: u32 = (n as u32 + threads_per_block - 1) / threads_per_block;
 
     let start = Instant::now();
+    let mut p: CudaVec<f32> = CudaVec::new(bodies);
+
     for _ in 0..STEPS {
         spawn!(
             nbodies_kernel::gpu_n_bodies,
@@ -48,10 +49,10 @@ pub fn run(n: usize) -> CudaVec<f32> {
             n as u64
         );
     }
+    p.copy_from_device();
+
     let elapsed = start.elapsed();
     println!("[nbodies] elapsed: {:.3} ms", elapsed.as_secs_f64() * 1000.0);
-
-    p.copy_from_device();
 
     p
 }

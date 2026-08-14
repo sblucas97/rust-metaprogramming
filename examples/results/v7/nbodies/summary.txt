@@ -1,0 +1,14 @@
+sources: /home/kranex/dev/rust-metaprogramming/examples/results/v7/nbodies/runs.csv
+versions: v7
+
+kernel              impl      size          n   mean_ms     stdev_ms  min_ms    max_ms    median_ms   
+------------------------------------------------------------------------------------------------------
+nbodies             rust      100           10  0.090       0.010     0.080     0.102     0.085       
+nbodies             rust-gpu  100           10  136.792     4.861     125.434   142.767   137.319     
+nbodies             rust-gpu  200           10  136.335     4.720     124.593   140.425   137.849     
+nbodies             rust-gpu  300           10  133.928     5.999     124.349   140.088   134.716     
+
+rust vs rust-gpu overhead
+kernel              size          rust_ms       rust-gpu_ms   overhead_ms overhead_%  slowdown_x  
+--------------------------------------------------------------------------------------------------
+nbodies             100           0.090         136.792       -136.703    -99.9       0.00x       

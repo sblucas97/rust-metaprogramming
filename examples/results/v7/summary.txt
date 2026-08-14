@@ -1,0 +1,29 @@
+sources: /home/kranex/dev/rust-metaprogramming/examples/results/v7/julia/runs.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v7/nbodies/runs.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v7/nearest_neighbor/runs.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v7/raytracer/runs.csv
+versions: v7
+
+kernel              impl      size          n   mean_ms     stdev_ms  min_ms    max_ms    median_ms   
+------------------------------------------------------------------------------------------------------
+julia               rust      100           10  5.219       0.115     5.130     5.437     5.154       
+julia               rust-gpu  100           10  144.377     25.024    127.478   213.978   137.188     
+julia               rust-gpu  200           10  136.976     4.114     129.179   145.278   136.941     
+julia               rust-gpu  300           10  136.281     5.797     125.774   143.149   137.034     
+nbodies             rust      100           10  0.090       0.010     0.080     0.102     0.085       
+nbodies             rust-gpu  100           10  136.792     4.861     125.434   142.767   137.319     
+nbodies             rust-gpu  200           10  136.335     4.720     124.593   140.425   137.849     
+nbodies             rust-gpu  300           10  133.928     5.999     124.349   140.088   134.716     
+nearest_neighbor    rust      100           10  0.000       0.000     0.000     0.000     0.000       
+nearest_neighbor    rust-gpu  100           10  136.722     3.804     128.942   141.978   136.762     
+nearest_neighbor    rust-gpu  200           10  134.751     3.697     126.754   140.614   135.246     
+nearest_neighbor    rust-gpu  300           10  135.823     7.797     123.666   146.627   138.145     
+raytracer           rust      100           10  0.668       0.071     0.602     0.791     0.640       
+raytracer           rust-gpu  100           10  136.598     5.231     125.408   143.297   138.995     
+raytracer           rust-gpu  200           10  136.128     4.180     126.851   141.977   135.721     
+raytracer           rust-gpu  300           10  141.184     7.510     130.248   158.164   141.563     
+
+rust vs rust-gpu overhead
+kernel              size          rust_ms       rust-gpu_ms   overhead_ms overhead_%  slowdown_x  
+--------------------------------------------------------------------------------------------------
+julia               100           5.219         144.377       -139.158    -96.4       0.04x       
+nbodies             100           0.090         136.792       -136.703    -99.9       0.00x       
+nearest_neighbor    100           0.000         136.722       -136.722    -100.0      0.00x       
+raytracer           100           0.668         136.598       -135.930    -99.5       0.00x       

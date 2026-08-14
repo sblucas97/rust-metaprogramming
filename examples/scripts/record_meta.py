@@ -8,7 +8,11 @@ existing meta.json so several kernels can share one version directory.
 Usage:
     record_meta.py <meta.json> --kernel julia --impls rust-gpu,cuda \
         --runs 30 --sizes "7168 9216 11264" --profile release \
-        --started <iso8601> --finished <iso8601>
+        --started <iso8601> --finished <iso8601> \
+        [--impl-sizes 'rust=8000' --impl-sizes 'rust-gpu=8000 10000']
+
+--sizes is the union swept for the kernel; --impl-sizes (repeatable) records
+which of them each impl actually ran, since impls need not share a size list.
 """
 import argparse
 import json
@@ -56,6 +60,14 @@ def main() -> None:
     parser.add_argument("--impls", required=True, help="comma-separated impl labels")
     parser.add_argument("--runs", required=True, type=int)
     parser.add_argument("--sizes", required=True, help="space-separated sizes")
+    parser.add_argument(
+        "--impl-sizes",
+        action="append",
+        default=[],
+        metavar="IMPL=SIZES",
+        help="sizes one impl ran, e.g. 'rust=1024 2048' (repeatable)",
+    )
+    parser.add_argument("--order", default="", help="blocked or interleaved")
     parser.add_argument("--profile", required=True)
     parser.add_argument("--started", required=True)
     parser.add_argument("--finished", required=True)
@@ -75,10 +87,19 @@ def main() -> None:
     meta.setdefault("started_at", args.started)
     meta["finished_at"] = args.finished
 
+    sizes_by_impl = {}
+    for spec in args.impl_sizes:
+        impl, _, impl_sizes = spec.partition("=")
+        if not impl or not _:
+            raise SystemExit(f"--impl-sizes expects IMPL=SIZES, got {spec!r}")
+        sizes_by_impl[impl] = impl_sizes.split()
+
     meta.setdefault("kernels", {})[args.kernel] = {
         "impls": args.impls.split(","),
         "runs": args.runs,
         "sizes": args.sizes.split(),
+        "sizes_by_impl": sizes_by_impl,
+        "order": args.order,
         "profile": args.profile,
         "started_at": args.started,
         "finished_at": args.finished,

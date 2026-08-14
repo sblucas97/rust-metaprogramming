@@ -1,0 +1,122 @@
+{
+  "version": "v7",
+  "environment": {
+    "git_commit": "085239f9b516acdd759360cfe7dc46554970beaf",
+    "git_dirty": true,
+    "hostname": "kranex-B550M-AORUS-ELITE",
+    "kernel_release": "7.0.0-28-generic",
+    "cpu_count": 16,
+    "gpu": "NVIDIA GeForce RTX 3070, 595.84, 8192 MiB",
+    "nvcc": "Build cuda_12.0.r12.0/compiler.32267302_0",
+    "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
+    "cargo": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)"
+  },
+  "started_at": "2026-08-14T18:55:18Z",
+  "finished_at": "2026-08-14T18:55:46Z",
+  "kernels": {
+    "julia": {
+      "impls": [
+        "rust-gpu",
+        "rust"
+      ],
+      "runs": 10,
+      "sizes": [
+        "100",
+        "200",
+        "300"
+      ],
+      "sizes_by_impl": {
+        "rust-gpu": [
+          "100",
+          "200",
+          "300"
+        ],
+        "rust": [
+          "100"
+        ]
+      },
+      "order": "blocked",
+      "profile": "release",
+      "started_at": "2026-08-14T18:55:18Z",
+      "finished_at": "2026-08-14T18:55:25Z"
+    },
+    "raytracer": {
+      "impls": [
+        "rust-gpu",
+        "rust"
+      ],
+      "runs": 10,
+      "sizes": [
+        "100",
+        "200",
+        "300"
+      ],
+      "sizes_by_impl": {
+        "rust-gpu": [
+          "100",
+          "200",
+          "300"
+        ],
+        "rust": [
+          "100"
+        ]
+      },
+      "order": "blocked",
+      "profile": "release",
+      "started_at": "2026-08-14T18:55:25Z",
+      "finished_at": "2026-08-14T18:55:32Z"
+    },
+    "nearest_neighbor": {
+      "impls": [
+        "rust-gpu",
+        "rust"
+      ],
+      "runs": 10,
+      "sizes": [
+        "100",
+        "200",
+        "300"
+      ],
+      "sizes_by_impl": {
+        "rust-gpu": [
+          "100",
+          "200",
+          "300"
+        ],
+        "rust": [
+          "100"
+        ]
+      },
+      "order": "blocked",
+      "profile": "release",
+      "started_at": "2026-08-14T18:55:32Z",
+      "finished_at": "2026-08-14T18:55:39Z"
+    },
+    "nbodies": {
+      "impls": [
+        "rust-gpu",
+        "rust"
+      ],
+      "runs": 10,
+      "sizes": [
+        "100",
+        "200",
+        "300"
+      ],
+      "sizes_by_impl": {
+        "rust-gpu": [
+          "100",
+          "200",
+          "300"
+        ],
+        "rust": [
+          "100"
+        ]
+      },
+      "order": "blocked",
+      "profile": "release",
+      "started_at": "2026-08-14T18:55:39Z",
+      "finished_at": "2026-08-14T18:55:46Z"
+    }
+  }
+}

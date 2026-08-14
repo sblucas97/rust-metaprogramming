@@ -5,7 +5,7 @@ Prints mean/stdev/min/max/median grouped by (kernel, impl, size), then a
 comparison table for every pair of implementations that both have rows for
 the same (kernel, size), showing how much slower/faster the first is than
 the second. Known impls: "rust-gpu" (the Rust DSL / custom compiler),
-"rust" (pure Rust on the CPU, rayon), "cuda" (hand-written CUDA).
+"rust" (pure Rust on the CPU, sequential), "cuda" (hand-written CUDA).
 
 Accepts CSV files or directories. A directory is searched recursively for
 `runs.csv` (the versioned layout written by run_bench.sh) and `*_runs.csv`

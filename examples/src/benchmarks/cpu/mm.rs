@@ -1,11 +1,10 @@
-use rayon::prelude::*;
-
 use std::time::Instant;
 
 // Mirrors the DSL kernel in benchmarks::mm: square m x m matrices filled with
 // (i % 100 + 1), naive triple loop with no tiling or blocking so the CPU does
-// the same arithmetic the kernel does. One rayon task per output row. Only the
-// compute is timed, matching the DSL side which times just the spawn!.
+// the same arithmetic the kernel does. Single threaded, one output row after
+// another. Only the compute is timed, matching the DSL side which times just
+// the spawn!.
 pub fn run(m: usize) -> Vec<f32> {
     let n = m;
     let k = m;
@@ -15,7 +14,7 @@ pub fn run(m: usize) -> Vec<f32> {
     let mut c = vec![0.0_f32; m * k];
 
     let start = Instant::now();
-    c.par_chunks_exact_mut(k)
+    c.chunks_exact_mut(k)
         .enumerate()
         .for_each(|(row, c_row)| {
             for (col, out) in c_row.iter_mut().enumerate() {

@@ -3,16 +3,21 @@
 #
 # Usage:
 #   run_all.sh [-i <impls>] [-n <runs>] [--profile <p>] [--arch <sm_XX>]
-#              [--version <vN>] [--only <k1,k2>] [--dry-run]
+#              [--limit-<impl> <n>] [--version <vN>] [--only <k1,k2>] [--dry-run]
 #
 # All flags are passed through to run_bench.sh, except --only, which restricts
 # the sweep to a subset of kernels. The version number is resolved once here so
 # every kernel lands in the same batch.
 #
+# --sizes / --sizes-<impl> are per-kernel by nature, so they're only worth
+# passing here alongside --only for a single kernel; --limit-<impl> is per-kernel
+# safe, since it just slices whatever sizes that kernel resolved.
+#
 # Examples:
 #   run_all.sh                              # every kernel, all three impls
 #   run_all.sh -i rust-gpu,cuda -n 30       # DSL vs CUDA across the board
 #   run_all.sh --only julia,raytracer -n 5  # quick subset
+#   run_all.sh -i rust,rust-gpu --limit-rust 1   # CPU only on the shared tier
 
 set -euo pipefail
 
@@ -31,7 +36,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --version) version="$2"; shift 2 ;;
         --only)    only="$2"; shift 2 ;;
-        -i|--impls|-n|--runs|-s|--sizes|--profile|--arch)
+        -i|--impls|-n|--runs|-s|--sizes|--order|--profile|--arch|--sizes-*|--limit-*)
                    passthrough+=("$1" "$2"); shift 2 ;;
         --dry-run|--no-build)
                    passthrough+=("$1"); shift ;;

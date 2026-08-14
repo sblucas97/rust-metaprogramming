@@ -79,10 +79,12 @@ impl Lowerer {
                     .last()
                     .ok_or("missing type segment")?;
 
-                match segment.ident.to_string().as_str() {
-                    "f32" => Ok(Type::F32),
-                    "u64" => Ok(Type::U64),
-                    "u32" => Ok(Type::U32),
+                let name = segment.ident.to_string();
+                if let Some(scalar) = crate::types::scalar_from_name(&name) {
+                    return Ok(scalar);
+                }
+
+                match name.as_str() {
                     "bool" => Ok(Type::Bool),
                     "CudaVec" => {
                         match &segment.arguments {
@@ -92,9 +94,14 @@ impl Lowerer {
 
                                 match first {
                                     syn::GenericArgument::Type(inner) => {
-                                        Ok(Type::CudaVec(
-                                            Box::new(self.lower_type(inner)?)
-                                        ))
+                                        let element = self.lower_type(inner)?;
+                                        if !element.is_numeric() {
+                                            return Err(format!(
+                                                "CudaVec<{element:?}> is not supported \
+                                                 (element must be a numeric scalar)"
+                                            ));
+                                        }
+                                        Ok(Type::CudaVec(Box::new(element)))
                                     }
                                     _ => Err("unsupported CudaVec generic".into()),
                                 }
@@ -228,17 +235,23 @@ impl Lowerer {
 
             SynExpr::Lit(lit) => match &lit.lit {
                 syn::Lit::Float(f) => {
-                    ExprKind::LiteralF32(f.base10_parse().map_err(|e| e.to_string())?)
+                    let value: f64 = f.base10_parse().map_err(|e| e.to_string())?;
+                    match f.suffix() {
+                        "" => ExprKind::LiteralFloat(value),
+                        suffix => match crate::types::scalar_from_name(suffix) {
+                            Some(ty) if ty.is_float() => ExprKind::LiteralTypedFloat(value, ty),
+                            _ => return Err(format!("unsupported float suffix: {suffix}")),
+                        },
+                    }
                 }
                 syn::Lit::Int(i) => {
                     let value: u64 = i.base10_parse().map_err(|e| e.to_string())?;
                     match i.suffix() {
                         "" => ExprKind::LiteralInt(value),
-                        "u64" => ExprKind::LiteralTypedInt(value, Type::U64),
-                        "u32" => ExprKind::LiteralTypedInt(value, Type::U32),
-                        other => {
-                            return Err(format!("unsupported integer suffix: {other}"));
-                        }
+                        suffix => match crate::types::scalar_from_name(suffix) {
+                            Some(ty) if ty.is_integer() => ExprKind::LiteralTypedInt(value, ty),
+                            _ => return Err(format!("unsupported integer suffix: {suffix}")),
+                        },
                     }
                 }
                 _ => return Err("unsupported literal".into()),

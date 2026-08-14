@@ -4,10 +4,12 @@ use macros::{cuda_module, spawn};
 use runtime::CudaVec;
 
 pub fn run(dim: usize) -> CudaVec<f32> {
-    let mut ptr: CudaVec<f32> = CudaVec::new(vec![0.0f32; dim * dim * 4]);
+    let cpu_vec = vec![0.0f32; dim * dim * 4];
     let ticks: f32 = 10.0f32;
 
     let start = Instant::now();
+    let mut ptr: CudaVec<f32> = CudaVec::new(cpu_vec);
+    
     spawn!(
         ripple_kernel::ripple_kernel,
         (dim as u32, dim as u32, 1),
@@ -16,10 +18,11 @@ pub fn run(dim: usize) -> CudaVec<f32> {
         dim as u64,
         ticks
     );
+    ptr.copy_from_device();
+    
     let elapsed = start.elapsed();
     println!("[ripple] elapsed: {:.3} ms", elapsed.as_secs_f64() * 1000.0);
 
-    ptr.copy_from_device();
     ptr
 }
 

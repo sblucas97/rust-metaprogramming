@@ -16,5 +16,3 @@ path = "src/main.rs"
 macros = { path = "../macros" }
 runtime = { path = "../runtime" }
 guard = { path = "../guard" }
-# Pure-Rust CPU reference implementations (benchmarks::cpu) parallelize with rayon.
-rayon = "1"

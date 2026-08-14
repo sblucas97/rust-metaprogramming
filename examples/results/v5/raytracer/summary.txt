@@ -1,0 +1,18 @@
+sources: /home/kranex/dev/rust-metaprogramming/examples/results/v5/raytracer/runs.csv
+versions: v5
+
+kernel              impl      size          n   mean_ms     stdev_ms  min_ms    max_ms    median_ms   
+------------------------------------------------------------------------------------------------------
+raytracer           rust      2048          10  22.566      0.358     22.081    23.434    22.481      
+raytracer           rust      4096          10  86.627      4.242     80.864    94.978    85.297      
+raytracer           rust      7168          10  256.068     5.417     250.588   265.645   254.435     
+raytracer           rust-gpu  2048          10  198.547     17.953    187.469   247.146   190.942     
+raytracer           rust-gpu  4096          10  384.212     15.984    354.745   401.616   385.637     
+raytracer           rust-gpu  7168          10  895.037     30.668    840.216   932.211   900.662     
+
+rust vs rust-gpu overhead
+kernel              size          rust_ms       rust-gpu_ms   overhead_ms overhead_%  slowdown_x  
+--------------------------------------------------------------------------------------------------
+raytracer           2048          22.566        198.547       -175.981    -88.6       0.11x       
+raytracer           4096          86.627        384.212       -297.584    -77.5       0.23x       
+raytracer           7168          256.068       895.037       -638.969    -71.4       0.29x       

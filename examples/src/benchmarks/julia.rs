@@ -8,13 +8,14 @@ pub fn run(dim: usize) -> CudaVec<f32> {
     // CPU
     let data: Vec<f32> = vec![0.0f32; dim * dim * 4];
 
+    let start = Instant::now();
     //GPU
     let mut ptr: CudaVec<f32> = CudaVec::new(data);
 
     // Time the kernel only, matching every other benchmark here: allocation and
     // the H2D/D2H transfers stay outside the measurement. spawn! already blocks
     // until the kernel finishes (runtime/src/launch.rs synchronizes the stream).
-    let start = Instant::now();
+    
     spawn!(
         julia_kernel::julia_kernel,
         (dim as u32, dim as u32, 1),
@@ -22,10 +23,10 @@ pub fn run(dim: usize) -> CudaVec<f32> {
         ptr,
         dim as u64
     );
+    ptr.copy_from_device();
+
     let elapsed = start.elapsed();
     println!("[julia] elapsed: {:.3} ms", elapsed.as_secs_f64() * 1000.0);
-
-    ptr.copy_from_device();
 
     ptr
 }

@@ -7,7 +7,7 @@ fn main() {
     // `demo 4096`               -> run everything, size 4096 (clamped per-bench as before)
     // `demo nbodies`            -> run only nbodies, default size
     // `demo nbodies 4096`       -> run only nbodies, size 4096
-    // `demo nbodies_cpu 4096`   -> run the pure-Rust (rayon) CPU version instead
+    // `demo nbodies_cpu 4096`   -> run the pure-Rust sequential CPU version instead
     let (bench, size_arg) = match args.get(1).map(String::as_str) {
         Some(name) if name.parse::<usize>().is_err() => (Some(name), args.get(2)),
         _ => (None, args.get(1)),
@@ -39,7 +39,7 @@ fn main() {
         Some("nbodies") => {
             benchmarks::nbodies::run(size);
         }
-        // Pure-Rust CPU (rayon) counterparts -- same arithmetic, no custom compiler.
+        // Pure-Rust sequential CPU counterparts -- same arithmetic, no custom compiler.
         Some("vector_sum_cpu") => {
             benchmarks::cpu::vector_sum::run(size);
         }

@@ -29,5 +29,4 @@ fn main() {
     println!("cargo:rustc-link-lib=static=lib_core");
     // Rerun if files change
     println!("cargo:rerun-if-changed=src/c_src/cuda.cu");
-    println!("cargo:rerun-if-changed=src/c_src/lib.h");
 }

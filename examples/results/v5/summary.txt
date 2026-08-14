@@ -1,0 +1,45 @@
+sources: /home/kranex/dev/rust-metaprogramming/examples/results/v5/julia/runs.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v5/nbodies/runs.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v5/nearest_neighbor/runs.csv, /home/kranex/dev/rust-metaprogramming/examples/results/v5/raytracer/runs.csv
+versions: v5
+
+kernel              impl      size          n   mean_ms     stdev_ms  min_ms    max_ms    median_ms   
+------------------------------------------------------------------------------------------------------
+julia               rust      2048          10  155.422     2.706     153.128   161.507   154.347     
+julia               rust      4096          10  620.599     7.660     613.404   636.089   617.681     
+julia               rust      7168          10  1974.217    54.266    1906.457  2072.914  1969.491    
+julia               rust-gpu  2048          10  236.238     27.347    223.128   312.692   225.415     
+julia               rust-gpu  4096          10  484.365     8.930     475.202   505.938   483.649     
+julia               rust-gpu  7168          10  1337.604    97.553    1245.246  1584.353  1303.769    
+nbodies             rust      10000         10  104.871     4.323     101.622   116.205   103.751     
+nbodies             rust      20000         10  415.623     7.273     406.077   426.155   413.449     
+nbodies             rust      40000         10  1655.432    18.575    1637.265  1681.580  1650.729    
+nbodies             rust-gpu  10000         10  161.319     36.942    145.628   266.016   149.726     
+nbodies             rust-gpu  20000         10  158.730     3.620     153.832   163.501   160.669     
+nbodies             rust-gpu  40000         10  250.945     31.297    173.652   294.820   253.372     
+nearest_neighbor    rust      100000000     10  59.294      3.378     56.009    68.276    58.413      
+nearest_neighbor    rust      200000000     10  114.823     1.685     112.724   117.386   114.661     
+nearest_neighbor    rust      300000000     10  171.301     1.856     167.764   174.258   171.731     
+nearest_neighbor    rust-gpu  100000000     10  610.816     44.588    549.028   675.708   630.116     
+nearest_neighbor    rust-gpu  200000000     10  1048.489    46.920    963.440   1102.704  1064.262    
+nearest_neighbor    rust-gpu  300000000     10  1495.386    48.694    1446.061  1602.436  1477.583    
+raytracer           rust      2048          10  22.566      0.358     22.081    23.434    22.481      
+raytracer           rust      4096          10  86.627      4.242     80.864    94.978    85.297      
+raytracer           rust      7168          10  256.068     5.417     250.588   265.645   254.435     
+raytracer           rust-gpu  2048          10  198.547     17.953    187.469   247.146   190.942     
+raytracer           rust-gpu  4096          10  384.212     15.984    354.745   401.616   385.637     
+raytracer           rust-gpu  7168          10  895.037     30.668    840.216   932.211   900.662     
+
+rust vs rust-gpu overhead
+kernel              size          rust_ms       rust-gpu_ms   overhead_ms overhead_%  slowdown_x  
+--------------------------------------------------------------------------------------------------
+julia               2048          155.422       236.238       -80.816     -34.2       0.66x       
+julia               4096          620.599       484.365       136.234     28.1        1.28x       
+julia               7168          1974.217      1337.604      636.613     47.6        1.48x       
+nbodies             10000         104.871       161.319       -56.447     -35.0       0.65x       
+nbodies             20000         415.623       158.730       256.893     161.8       2.62x       
+nbodies             40000         1655.432      250.945       1404.486    559.7       6.60x       
+nearest_neighbor    100000000     59.294        610.816       -551.522    -90.3       0.10x       
+nearest_neighbor    200000000     114.823       1048.489      -933.666    -89.0       0.11x       
+nearest_neighbor    300000000     171.301       1495.386      -1324.085   -88.5       0.11x       
+raytracer           2048          22.566        198.547       -175.981    -88.6       0.11x       
+raytracer           4096          86.627        384.212       -297.584    -77.5       0.23x       
+raytracer           7168          256.068       895.037       -638.969    -71.4       0.29x       

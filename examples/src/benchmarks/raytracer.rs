@@ -34,14 +34,18 @@ pub(crate) fn generate_spheres(dim: usize) -> Vec<f32> {
 }
 
 pub fn run(dim: usize) -> CudaVec<f32> {
-    let spheres: CudaVec<f32> = CudaVec::new(generate_spheres(dim));
-    let mut image: CudaVec<f32> = CudaVec::new(vec![0.0f32; dim * dim * 4]);
+    let spheres: Vec<f32> = generate_spheres(dim);
+    let img_cpu_vec = vec![0.0f32; dim * dim * 4];
 
     let block: u32 = 16;
     let grid_x = (dim as u32 + block - 1) / block;
     let grid_y = (dim as u32 + block - 1) / block;
 
     let start = Instant::now();
+
+    let spheres: CudaVec<f32> = CudaVec::new(spheres);
+    let mut image: CudaVec<f32> = CudaVec::new(img_cpu_vec);
+
     spawn!(
         raytracer_kernel::raytracing,
         (grid_x, grid_y, 1),
@@ -51,10 +55,11 @@ pub fn run(dim: usize) -> CudaVec<f32> {
         dim as u64,
         dim as u64
     );
+    image.copy_from_device();
+
     let elapsed = start.elapsed();
     println!("[raytracer] elapsed: {:.3} ms", elapsed.as_secs_f64() * 1000.0);
 
-    image.copy_from_device();
     image
 }
 

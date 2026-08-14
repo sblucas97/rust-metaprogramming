@@ -1,0 +1,18 @@
+sources: /home/kranex/dev/rust-metaprogramming/examples/results/v5/julia/runs.csv
+versions: v5
+
+kernel              impl      size          n   mean_ms     stdev_ms  min_ms    max_ms    median_ms   
+------------------------------------------------------------------------------------------------------
+julia               rust      2048          10  155.422     2.706     153.128   161.507   154.347     
+julia               rust      4096          10  620.599     7.660     613.404   636.089   617.681     
+julia               rust      7168          10  1974.217    54.266    1906.457  2072.914  1969.491    
+julia               rust-gpu  2048          10  236.238     27.347    223.128   312.692   225.415     
+julia               rust-gpu  4096          10  484.365     8.930     475.202   505.938   483.649     
+julia               rust-gpu  7168          10  1337.604    97.553    1245.246  1584.353  1303.769    
+
+rust vs rust-gpu overhead
+kernel              size          rust_ms       rust-gpu_ms   overhead_ms overhead_%  slowdown_x  
+--------------------------------------------------------------------------------------------------
+julia               2048          155.422       236.238       -80.816     -34.2       0.66x       
+julia               4096          620.599       484.365       136.234     28.1        1.28x       
+julia               7168          1974.217      1337.604      636.613     47.6        1.48x       

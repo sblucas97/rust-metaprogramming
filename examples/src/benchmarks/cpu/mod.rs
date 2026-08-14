@@ -1,4 +1,5 @@
-//! Pure-Rust CPU implementations of the benchmarks (rayon for parallelism).
+//! Pure-Rust sequential CPU implementations of the benchmarks (single threaded,
+//! no parallelism at all).
 //! These do not use the custom compiler at all -- they exist as a third
 //! reference point next to the DSL ("rust-gpu") and hand-written CUDA.
 //!

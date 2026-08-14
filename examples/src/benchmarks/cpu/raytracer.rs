@@ -1,23 +1,23 @@
-use rayon::prelude::*;
-
 use std::time::Instant;
 
 use crate::benchmarks::raytracer::generate_spheres;
 
 // Mirrors the DSL kernel in benchmarks::raytracer exactly (same 20 spheres from
 // the shared generator, same hit test, same RGBA layout) so timings are directly
-// comparable. Only the compute is timed, matching the DSL side which times just
-// the spawn!.
+// comparable. Single threaded: one pixel after another, no parallelism. Only the
+// compute is timed, matching the DSL side which times just the spawn!.
 pub fn run(dim: usize) -> Vec<f32> {
     let spheres = generate_spheres(dim);
+    
+    let start = Instant::now();
+
     let mut image = vec![0.0_f32; dim * dim * 4];
 
     let width = dim;
     let height = dim;
 
-    let start = Instant::now();
     image
-        .par_chunks_exact_mut(4)
+        .chunks_exact_mut(4)
         .enumerate()
         .for_each(|(offset, pixel)| {
             let x = offset % width;

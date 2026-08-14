@@ -14,25 +14,19 @@ impl Generator {
         }
     }
 
-    fn type_map() -> HashMap<&'static str, &'static str> {
-        HashMap::from([
-            ("u8", "uint8_t"),
-            ("u16", "uint16_t"),
-            ("u32", "uint32_t"),
-            ("u64", "uint64_t"),
-            ("f32", "float"),
-            ("f64", "double"),
-        ])
-    }
-
     fn indent_str(&self) -> String {
         const INDENT_SIZE: usize = 4;
         " ".repeat(self.indent * INDENT_SIZE)
     }
 
+    // Scalar names come from the shared table in types.rs, so codegen and
+    // lowering can't drift apart. `bool` is special-cased: a valid local /
+    // condition type, but deliberately not a CudaVec element scalar.
     fn map_type(&self, t: &str) -> String {
-        Self::type_map()
-            .get(t)
+        if t == "bool" {
+            return "bool".to_string();
+        }
+        crate::types::cuda_name(t)
             .unwrap_or_else(|| panic!("Unsupported Rust type: {}", t))
             .to_string()
     }
@@ -398,7 +392,7 @@ impl Generator {
     fn loop_counter_type(&self, start: &syn::Expr) -> String {
         if let syn::Expr::Lit(expr_lit) = start {
             if let syn::Lit::Int(int_lit) = &expr_lit.lit {
-                if let Some(c_type) = Self::type_map().get(int_lit.suffix()) {
+                if let Some(c_type) = crate::types::cuda_name(int_lit.suffix()) {
                     return c_type.to_string();
                 }
             }
@@ -460,7 +454,8 @@ impl Generator {
                     "u64" => format!("{digits}ULL"),
                     "u32" => format!("{digits}U"),
                     "i64" => format!("{digits}LL"),
-                    // "", "i32", "u8", "u16": plain int literal promotes correctly
+                    // "", "i8"/"i16"/"i32", "u8"/"u16": a plain int literal
+                    // promotes correctly in C for all of these
                     _ => digits.to_string(),
                 }
             }

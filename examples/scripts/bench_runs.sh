@@ -11,7 +11,7 @@
 #   -k   kernel name, e.g. nbodies / nearest_neighbor (just a label, doesn't have
 #        to match the binary's own "[name]" tag, though it usually will)
 #   -i   which implementation this run is: "rust-gpu" (the DSL / custom
-#        compiler, via demo), "rust" (pure Rust on the CPU, rayon), or "cuda"
+#        compiler, via demo), "rust" (pure Rust on the CPU, sequential), or "cuda"
 #        (the hand-written .cu binary) -- this is the column you filter/group
 #        on to compare implementations
 #   -s   problem size N you're passing to the command (recorded for grouping,
